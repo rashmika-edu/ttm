@@ -114,49 +114,82 @@
         }
 
         async function processAuth(e) {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+    e.preventDefault();
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
 
-            if (isLogin) {
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) return alert(error.message);
-            } else {
-                const role = document.getElementById('role').value;
-                const name = document.getElementById('fullname').value;
-                let s_id = null;
+    if (isLogin) {
+        // --- LOGIN LOGIC ---
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return alert("Login Error: " + error.message);
+        checkUser();
+    } else {
+        // --- REGISTRATION LOGIC ---
+        const role = document.getElementById('role').value;
+        const name = document.getElementById('fullname').value;
+        let s_id = null;
 
-                if (role !== 'principal') {
-                    const code = document.getElementById('v_code').value;
-                    const { data: check } = await supabase.rpc('get_school_by_code', { input_code: code });
-                    if (!check || check.length === 0) return alert("Invalid Verification Code!");
-                    s_id = check[0].s_id;
-                }
+        // 1. Validation for Staff (Verification Code Check)
+        if (role !== 'principal') {
+            const vCode = document.getElementById('v_code').value;
+            const { data: codeCheck, error: codeError } = await supabase
+                .from('registration_codes')
+                .select('school_id')
+                .eq('code', vCode)
+                .single();
 
-                const { data: auth, error: aErr } = await supabase.auth.signUp({ email, password });
-                if (aErr) return alert(aErr.message);
-
-                if (role === 'principal') {
-                    const s_name = document.getElementById('school_name').value;
-                    const { data: s_data } = await supabase.from('schools').insert({ name: s_name }).select().single();
-                    s_id = s_data.id;
-                }
-
-                const { error: pErr } = await supabase.from('profiles').insert({
-                    id: auth.user.id,
-                    email,
-                    full_name: name,
-                    role,
-                    school_id: s_id
-                });
-                
-                if (pErr) return alert("Profile Error: " + pErr.message);
-                alert("Account created! You can now log in.");
-                toggleAuth('login');
-                return;
+            if (codeError || !codeCheck) {
+                return alert("Invalid Verification Code. Please ask your Principal for a valid code.");
             }
-            checkUser();
+            s_id = codeCheck.school_id;
         }
+
+        // 2. Create Auth Account
+        // Note: If this succeeds but the next steps fail, the user is created in Auth but has no Profile.
+        const { data: authData, error: authError } = await supabase.auth.signUp({ 
+            email, 
+            password,
+            options: {
+                data: { full_name: name } // Optional: Store name in auth metadata too
+            }
+        });
+
+        if (authError) return alert("Auth Error: " + authError.message);
+        if (!authData.user) return alert("Check your email for a confirmation link before logging in!");
+
+        // 3. Principal: Create the School first
+        if (role === 'principal') {
+            const sNameInput = document.getElementById('school_name').value;
+            const { data: schoolData, error: schoolError } = await supabase
+                .from('schools')
+                .insert({ name: sNameInput })
+                .select()
+                .single();
+            
+            if (schoolError) return alert("School creation failed: " + schoolError.message);
+            s_id = schoolData.id;
+        }
+
+        // 4. Create the Profile link
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+                id: authData.user.id,
+                email: email,
+                full_name: name,
+                role: role,
+                school_id: s_id
+            });
+
+        if (profileError) {
+            console.error(profileError);
+            return alert("Auth succeeded, but profile creation failed. Contact Admin.");
+        }
+
+        alert("Registration Successful! " + (authData.session ? "Logging you in..." : "Please check your email to confirm."));
+        if (authData.session) checkUser(); else toggleAuth('login');
+    }
+}
 
         async function checkUser() {
             const { data: { user } } = await supabase.auth.getUser();
