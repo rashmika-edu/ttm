@@ -9,210 +9,258 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --accent: #6366f1; --accent-hover: #4f46e5; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; overflow: hidden; }
+        :root { --accent: #6366f1; --glass: rgba(15, 23, 42, 0.85); }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; margin: 0; overflow-x: hidden; }
         
-        /* Animated Background */
-        .bg-glow {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 600px; height: 600px; background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(2,6,23,0) 70%);
-            z-index: -1; filter: blur(60px); pointer-events: none;
-        }
+        /* Glassmorphism Classes */
+        .glass-panel { background: var(--glass); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.08); }
+        .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; }
+        .glass-card:hover { border-color: var(--accent); background: rgba(99, 102, 241, 0.05); }
+        
+        /* Active States */
+        .active-nav { background: rgba(99, 102, 241, 0.15); color: #818cf8; border-left: 4px solid var(--accent); }
+        .teacher-slot { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
 
-        .glass-panel { 
-            background: rgba(15, 23, 42, 0.6); 
-            backdrop-filter: blur(24px); 
-            border: 1px solid rgba(255,255,255,0.08); 
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-        }
-
-        .input-group input, .input-group select {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: all 0.2s ease;
-        }
-
-        .input-group input:focus, .input-group select:focus {
-            border-color: var(--accent);
-            background: rgba(255,255,255,0.05);
-            box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
-        .btn-primary:active { transform: translateY(0); }
-
-        .dev-signature { font-size: 10px; letter-spacing: 3px; opacity: 0.3; text-transform: uppercase; }
+        /* Utility */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .dev-signature { font-size: 10px; letter-spacing: 2px; opacity: 0.4; text-transform: uppercase; }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-6">
-    <div class="bg-glow"></div>
+<body class="min-h-screen">
 
-    <div id="auth-layer" class="w-full max-w-[440px] z-10">
-        <div class="glass-panel rounded-[2.5rem] p-10 relative overflow-hidden">
-            <div class="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl"></div>
+    <div id="auth-layer" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 p-6">
+        <div class="glass-panel w-full max-w-[420px] rounded-[40px] p-10 shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-20 -left-20 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl"></div>
             
-            <div class="text-center mb-10 relative">
+            <div class="text-center mb-10">
                 <div class="inline-flex p-3 bg-indigo-500/10 rounded-2xl mb-4">
-                    <i data-lucide="shield-check" class="w-8 h-8 text-indigo-400"></i>
+                    <i data-lucide="sparkles" class="w-8 h-8 text-indigo-400"></i>
                 </div>
-                <h1 id="auth-title" class="text-3xl font-bold tracking-tight text-white">Welcome Back</h1>
-                <p id="auth-subtitle" class="text-slate-400 mt-2 text-sm">Please enter your details to sign in</p>
+                <h1 id="auth-title" class="text-3xl font-bold tracking-tight">Lumina TTM</h1>
+                <p id="auth-subtitle" class="text-slate-400 mt-2 text-sm">Sign in to manage your schedule</p>
             </div>
 
             <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
-                <div id="reg-fields" class="hidden space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                    <div class="input-group">
-                        <label class="text-xs font-semibold text-slate-500 ml-1 mb-1 block">FULL NAME</label>
-                        <input type="text" id="fullname" placeholder="e.g. John Doe" class="w-full p-3 rounded-xl outline-none text-white">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="input-group">
-                            <label class="text-xs font-semibold text-slate-500 ml-1 mb-1 block">ROLE</label>
-                            <select id="role" class="w-full p-3 rounded-xl outline-none text-white appearance-none">
-                                <option value="teacher">Teacher</option>
-                                <option value="manager">Manager</option>
-                                <option value="principal">Principal</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label class="text-xs font-semibold text-amber-500 ml-1 mb-1 block">JOIN CODE</label>
-                            <input type="text" id="v_code" placeholder="School ID" class="w-full p-3 rounded-xl outline-none text-amber-200 border-amber-500/20 bg-amber-500/5">
-                        </div>
+                <div id="reg-fields" class="hidden space-y-4 animate-fade-in">
+                    <input type="text" id="fullname" placeholder="Full Name" class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none text-white focus:border-indigo-500">
+                    <div class="grid grid-cols-2 gap-3">
+                        <select id="role" class="bg-slate-900 border border-white/10 p-3 rounded-xl outline-none text-white text-sm">
+                            <option value="teacher">Teacher</option>
+                            <option value="manager">Manager</option>
+                            <option value="principal">Principal</option>
+                        </select>
+                        <input type="text" id="v_code" placeholder="Join Code" class="bg-amber-500/5 border border-amber-500/20 p-3 rounded-xl outline-none text-amber-200 text-sm">
                     </div>
                 </div>
-
-                <div class="input-group">
-                    <label class="text-xs font-semibold text-slate-500 ml-1 mb-1 block">EMAIL ADDRESS</label>
-                    <input type="email" id="email" required placeholder="name@school.com" class="w-full p-3 rounded-xl outline-none text-white">
-                </div>
-
-                <div class="input-group">
-                    <label class="text-xs font-semibold text-slate-500 ml-1 mb-1 block">PASSWORD</label>
-                    <input type="password" id="password" required placeholder="••••••••" class="w-full p-3 rounded-xl outline-none text-white">
-                </div>
-
-                <button type="submit" id="submit-btn" class="w-full btn-primary py-4 rounded-2xl font-bold text-white shadow-xl mt-6">
-                    Sign In
+                
+                <input type="email" id="email" placeholder="Email Address" required class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none text-white focus:border-indigo-500">
+                <input type="password" id="password" placeholder="Password" required class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none text-white focus:border-indigo-500">
+                
+                <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-bold text-white shadow-lg transition-all active:scale-[0.98]">
+                    Continue
                 </button>
-
-                <p class="text-center text-sm text-slate-500 mt-8">
-                    <span id="toggle-text">Don't have an account?</span>
-                    <button type="button" onclick="toggleAuthMode()" class="text-indigo-400 font-bold hover:underline ml-1">
-                        <span id="toggle-btn-label">Create Account</span>
-                    </button>
+                
+                <p class="text-center text-xs text-slate-500 mt-6">
+                    <span id="toggle-hint">New to Lumina?</span>
+                    <button type="button" onclick="toggleAuthMode()" class="text-indigo-400 font-bold ml-1 hover:underline" id="toggle-btn">Create Account</button>
                 </p>
             </form>
         </div>
-        <div class="dev-signature mt-8 text-center">Built by K.A.V.Rashmika</div>
     </div>
 
-    <div id="main-app" class="hidden">...</div>
+    <div id="main-app" class="hidden h-screen flex">
+        <aside class="w-72 glass-panel border-y-0 border-l-0 flex flex-col">
+            <div class="p-8">
+                <h2 class="text-2xl font-bold flex items-center gap-2 mb-8">
+                    <i data-lucide="layers" class="text-indigo-500"></i> Lumina
+                </h2>
+                <div class="p-4 bg-white/5 rounded-2xl border border-white/10">
+                    <p id="ui-school" class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Loading...</p>
+                    <p id="ui-user" class="text-sm font-semibold truncate mt-1">---</p>
+                </div>
+            </div>
+
+            <nav id="sidebar-nav" class="flex-1 px-4 space-y-2"></nav>
+
+            <div class="p-8 border-t border-white/5">
+                <button onclick="signOut()" class="flex items-center gap-3 text-slate-500 hover:text-white transition w-full mb-4">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+                </button>
+                <div class="dev-signature">Developed by K.A.V.Rashmika</div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-hidden bg-slate-950/50">
+            <header class="h-20 flex items-center justify-between px-10 border-b border-white/5">
+                <h3 id="view-title" class="text-xl font-bold text-white">Dashboard</h3>
+                <div id="header-actions"></div>
+            </header>
+
+            <div id="content-view" class="flex-1 p-10 overflow-y-auto no-scrollbar animate-fade-in">
+                </div>
+        </main>
+    </div>
 
     <script>
+        // --- CONFIGURATION ---
         const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
         const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
         const supabase = window.supabase.createClient(SB_URL, SB_KEY);
         
+        let userProfile = null;
         let isRegistering = false;
 
+        // --- AUTH ENGINE ---
         function toggleAuthMode() {
             isRegistering = !isRegistering;
-            const regFields = document.getElementById('reg-fields');
-            const title = document.getElementById('auth-title');
-            const subtitle = document.getElementById('auth-subtitle');
-            const submitBtn = document.getElementById('submit-btn');
-            const toggleText = document.getElementById('toggle-text');
-            const toggleBtnLabel = document.getElementById('toggle-btn-label');
-
-            if (isRegistering) {
-                regFields.classList.remove('hidden');
-                title.innerText = "Join Lumina";
-                subtitle.innerText = "Start managing your school schedule";
-                submitBtn.innerText = "Register Account";
-                toggleText.innerText = "Already have an account?";
-                toggleBtnLabel.innerText = "Sign In";
-            } else {
-                regFields.classList.add('hidden');
-                title.innerText = "Welcome Back";
-                subtitle.innerText = "Please enter your details to sign in";
-                submitBtn.innerText = "Sign In";
-                toggleText.innerText = "Don't have an account?";
-                toggleBtnLabel.innerText = "Create Account";
-            }
+            document.getElementById('reg-fields').classList.toggle('hidden', !isRegistering);
+            document.getElementById('auth-title').innerText = isRegistering ? "Join Lumina" : "Lumina TTM";
+            document.getElementById('submit-btn').innerText = isRegistering ? "Register" : "Continue";
+            document.getElementById('toggle-hint').innerText = isRegistering ? "Already have an account?" : "New to Lumina?";
+            document.getElementById('toggle-btn').innerText = isRegistering ? "Sign In" : "Create Account";
         }
 
         async function handleAuth(e) {
-    e.preventDefault();
-    const btn = document.getElementById('submit-btn');
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
 
-    btn.disabled = true;
-    btn.innerText = "Processing...";
+            try {
+                if (isRegistering) {
+                    const fullName = document.getElementById('fullname').value;
+                    const role = document.getElementById('role').value;
+                    const vCode = document.getElementById('v_code').value;
 
-    try {
-        if (isRegistering) {
-            const fullName = document.getElementById('fullname').value;
-            const role = document.getElementById('role').value;
-            const vCode = document.getElementById('v_code').value;
+                    // 1. Verify School Join Code
+                    const { data: school, error: sError } = await supabase.from('schools').select('id').eq('name', vCode).single();
+                    if (sError || !school) throw new Error("Invalid Join Code. Please contact your administrator.");
 
-            if (!fullName || !vCode) throw new Error("Full name and Join Code are required.");
+                    // 2. Sign Up
+                    const { data: auth, error: aError } = await supabase.auth.signUp({ email, password });
+                    if (aError) throw aError;
 
-            // 1. Verify School exists BEFORE signing up
-            const { data: school, error: sError } = await supabase
-                .from('schools')
-                .select('id')
-                .eq('name', vCode) // Or .eq('id', vCode) if using UUIDs
-                .single();
-
-            if (sError || !school) {
-                console.error("School lookup error:", sError);
-                throw new Error("Invalid Join Code. Make sure the school name matches exactly.");
-            }
-
-            // 2. Create User in Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signUp({ 
-                email, 
-                password 
-            });
-
-            if (authError) throw authError;
-
-            // 3. Create the Profile link
-            if (authData.user) {
-                const { error: pError } = await supabase.from('profiles').insert([{
-                    id: authData.user.id,
-                    full_name: fullName,
-                    role: role,
-                    school_id: school.id
-                }]);
-                
-                if (pError) {
-                    console.error("Profile creation error:", pError);
-                    throw new Error("User created, but profile failed. This is usually an RLS policy issue.");
+                    // 3. Create Profile
+                    if (auth.user) {
+                        const { error: pError } = await supabase.from('profiles').insert([{
+                            id: auth.user.id,
+                            full_name: fullName,
+                            role: role,
+                            school_id: school.id
+                        }]);
+                        if (pError) throw pError;
+                        alert("Success! Now please sign in with your new account.");
+                        toggleAuthMode();
+                    }
+                } else {
+                    const { error } = await supabase.signInWithPassword({ email, password });
+                    if (error) throw error;
                 }
-                
-                alert("Account created successfully!");
-                toggleAuthMode();
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btn.disabled = false;
             }
-        } else {
-            // Login Logic
-            const { error } = await supabase.signInWithPassword({ email, password });
-            if (error) throw error;
-            window.location.reload(); 
         }
-    } catch (err) {
-        alert(err.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerText = isRegistering ? "Register Account" : "Sign In";
-    }
-}
+
+        // --- APP INITIALIZATION ---
+        async function initApp() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await supabase.from('profiles').select('*, schools(*)').eq('id', user.id).single();
+                if (profile) {
+                    userProfile = profile;
+                    document.getElementById('auth-layer').classList.add('hidden');
+                    document.getElementById('main-app').classList.remove('hidden');
+                    document.getElementById('ui-school').innerText = profile.schools.name;
+                    document.getElementById('ui-user').innerText = profile.full_name;
+                    
+                    renderNavigation();
+                    loadDashboard();
+                }
+            } else {
+                document.getElementById('auth-layer').classList.remove('hidden');
+                document.getElementById('main-app').classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        function renderNavigation() {
+            const nav = document.getElementById('sidebar-nav');
+            nav.innerHTML = '';
+            
+            addNavLink(nav, 'Dashboard', 'home', loadDashboard);
+            
+            if (userProfile.role === 'teacher') {
+                addNavLink(nav, 'My Schedule', 'calendar-days', () => renderView("My Weekly Schedule", "Teacher schedule coming soon..."));
+            } else {
+                addNavLink(nav, 'School Grid', 'grid', () => renderView("Master Timetable", "Full school grid coming soon..."));
+                addNavLink(nav, 'Settings', 'settings', () => renderView("System Settings", "Configure your school timeline here."));
+            }
+
+            if (userProfile.role === 'principal') {
+                addNavLink(nav, 'Staff Control', 'shield-check', () => renderView("Administration", "Manage teachers and access levels."));
+            }
+            lucide.createIcons();
+        }
+
+        function addNavLink(parent, label, icon, action) {
+            const btn = document.createElement('button');
+            btn.className = "w-full flex items-center gap-3 p-4 rounded-2xl transition text-slate-400 hover:text-white hover:bg-white/5";
+            btn.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i> <span class="text-sm font-medium">${label}</span>`;
+            btn.onclick = () => {
+                document.querySelectorAll('#sidebar-nav button').forEach(b => b.classList.remove('active-nav'));
+                btn.classList.add('active-nav');
+                action();
+            };
+            parent.appendChild(btn);
+        }
+
+        // --- VIEWS ---
+        function loadDashboard() {
+            document.getElementById('view-title').innerText = "Overview";
+            document.getElementById('content-view').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="glass-panel p-10 rounded-[40px] relative overflow-hidden">
+                        <i data-lucide="zap" class="absolute -right-10 -top-10 w-40 h-40 text-indigo-500 opacity-5"></i>
+                        <h4 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Welcome back</h4>
+                        <h2 class="text-4xl font-bold">${userProfile.full_name}</h2>
+                        <div class="mt-8 flex gap-4">
+                            <span class="px-4 py-2 bg-indigo-600/20 text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-tighter">${userProfile.role}</span>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-10 rounded-[40px]">
+                        <h4 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Quick Actions</h4>
+                        <div class="space-y-3">
+                            <button class="w-full p-4 glass-card rounded-2xl text-left text-sm font-medium flex items-center justify-between">
+                                Check Today's Classes <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderView(title, placeholder) {
+            document.getElementById('view-title').innerText = title;
+            document.getElementById('content-view').innerHTML = `
+                <div class="glass-panel p-10 rounded-[40px] text-center">
+                    <p class="text-slate-400">${placeholder}</p>
+                </div>`;
+        }
+
+        async function signOut() {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+
+        // --- LISTENERS ---
+        supabase.auth.onAuthStateChange(() => initApp());
+        window.onload = initApp;
         lucide.createIcons();
     </script>
 </body>
