@@ -147,64 +147,72 @@
         }
 
         async function handleAuth(e) {
-            e.preventDefault();
-            const btn = document.getElementById('submit-btn');
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
 
-            btn.disabled = true;
-            btn.innerText = "Processing...";
+    btn.disabled = true;
+    btn.innerText = "Processing...";
 
-            try {
-                if (isRegistering) {
-                    const fullName = document.getElementById('fullname').value;
-                    const role = document.getElementById('role').value;
-                    const vCode = document.getElementById('v_code').value;
+    try {
+        if (isRegistering) {
+            const fullName = document.getElementById('fullname').value;
+            const role = document.getElementById('role').value;
+            const vCode = document.getElementById('v_code').value;
 
-                    if (!fullName || !vCode) throw new Error("Full name and Join Code are required.");
+            if (!fullName || !vCode) throw new Error("Full name and Join Code are required.");
 
-                    // Verify School
-                    const { data: school, error: sError } = await supabase
-                        .from('schools')
-                        .select('id')
-                        .or(`name.eq."${vCode}",id.eq."${vCode}"`)
-                        .single();
+            // 1. Verify School exists BEFORE signing up
+            const { data: school, error: sError } = await supabase
+                .from('schools')
+                .select('id')
+                .eq('name', vCode) // Or .eq('id', vCode) if using UUIDs
+                .single();
 
-                    if (sError || !school) throw new Error("Invalid Join Code. Please contact your admin.");
-
-                    // Create User
-                    const { data: authData, error: authError } = await supabase.auth.signUp({ 
-                        email, 
-                        password 
-                    });
-
-                    if (authError) throw authError;
-
-                    // Create Profile
-                    if (authData.user) {
-                        const { error: pError } = await supabase.from('profiles').insert([{
-                            id: authData.user.id,
-                            full_name: fullName,
-                            role: role,
-                            school_id: school.id
-                        }]);
-                        if (pError) throw pError;
-                        alert("Account created! Check your email to verify, then sign in.");
-                        toggleAuthMode();
-                    }
-                } else {
-                    const { error } = await supabase.signInWithPassword({ email, password });
-                    if (error) throw error;
-                    location.reload(); // Refresh to trigger checkUser
-                }
-            } catch (err) {
-                alert(err.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerText = isRegistering ? "Register Account" : "Sign In";
+            if (sError || !school) {
+                console.error("School lookup error:", sError);
+                throw new Error("Invalid Join Code. Make sure the school name matches exactly.");
             }
-        }
 
+            // 2. Create User in Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({ 
+                email, 
+                password 
+            });
+
+            if (authError) throw authError;
+
+            // 3. Create the Profile link
+            if (authData.user) {
+                const { error: pError } = await supabase.from('profiles').insert([{
+                    id: authData.user.id,
+                    full_name: fullName,
+                    role: role,
+                    school_id: school.id
+                }]);
+                
+                if (pError) {
+                    console.error("Profile creation error:", pError);
+                    throw new Error("User created, but profile failed. This is usually an RLS policy issue.");
+                }
+                
+                alert("Account created successfully!");
+                toggleAuthMode();
+            }
+        } else {
+            // Login Logic
+            const { error } = await supabase.signInWithPassword({ email, password });
+            if (error) throw error;
+            window.location.reload(); 
+        }
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = isRegistering ? "Register Account" : "Sign In";
+    }
+}
         lucide.createIcons();
     </script>
 </body>
