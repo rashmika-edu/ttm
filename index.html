@@ -87,165 +87,153 @@
         </main>
     </div>
 
-    <script>
-        // --- CORE STATE ---
-        const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
-        const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
-        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
-        let userProfile = null;
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-        // --- AUTH ---
-        async function checkUser() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profile } = await supabase.from('profiles').select('*, schools(*)').eq('id', user.id).single();
-                userProfile = profile;
-                initUI();
-            }
+<script>
+    // --- 1. INITIALIZATION ---
+    // Replace these with your actual Supabase project details
+    const SUPABASE_URL = 'https://your-project-id.supabase.co';
+    const SUPABASE_ANON_KEY = 'your-anon-key';
+    
+    // Correct way to initialize with the CDN script
+    const { createClient } = supabase;
+    const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // --- 2. PRINCIPAL/SCHOOL REGISTRATION ---
+    async function handleRegSchool() {
+        const sName = document.getElementById('sName').value;
+        const pName = document.getElementById('pName').value;
+        const pEmail = document.getElementById('pEmail').value;
+        const pPass = document.getElementById('pPass').value;
+        const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+
+        if (!sName || !pEmail || !pPass) {
+            alert("Please fill in all fields.");
+            return;
         }
 
-        function initUI() {
-            document.getElementById('auth-layer').classList.add('hidden');
-            document.getElementById('main-app').classList.remove('hidden');
-            document.getElementById('ui-school').innerText = userProfile.schools.name;
-            document.getElementById('ui-user').innerText = userProfile.full_name;
+        try {
+            console.log("Starting School Registration...");
 
-            const nav = document.getElementById('sidebar-nav');
-            nav.innerHTML = '';
+            // Step A: Create the School entry first (required for Foreign Key)
+            const { error: schoolError } = await _supabase
+                .from('schools')
+                .insert([{ name: sName, code: code }]);
             
-            // Shared Dashboard
-            addLink(nav, 'Dashboard', 'home', loadDashboard);
+            if (schoolError) throw new Error("School Creation Failed: " + schoolError.message);
 
-            // Role-Based Links
-            if (userProfile.role === 'teacher') {
-                addLink(nav, 'My Timetable', 'calendar-days', loadTeacherTimetable);
-            } else {
-                addLink(nav, 'School Timetable', 'grid', loadFullTimetable);
-                addLink(nav, 'Period Management', 'clock', loadPeriodEditor);
-            }
-
-            if (userProfile.role === 'principal') {
-                addLink(nav, 'Access Codes', 'key', () => alert("Loading Codes..."));
-            }
-
-            lucide.createIcons();
-            loadDashboard();
-        }
-
-        function addLink(parent, label, icon, action) {
-            const btn = document.createElement('button');
-            btn.className = "w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-white/5 transition text-slate-400 group";
-            btn.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5 group-hover:text-indigo-400"></i> <span class="text-sm font-medium">${label}</span>`;
-            btn.onclick = () => {
-                document.querySelectorAll('#sidebar-nav button').forEach(b => b.classList.remove('active-nav'));
-                btn.classList.add('active-nav');
-                action();
-            };
-            parent.appendChild(btn);
-        }
-
-        // --- TEACHER VIEW ENGINE ---
-        async function loadTeacherTimetable() {
-            document.getElementById('view-title').innerText = "My Weekly Schedule";
-            const container = document.getElementById('content-view');
-            container.innerHTML = `<div class="animate-pulse text-indigo-400">Loading assignments...</div>`;
-
-            // Fetch periods and user's specific timetable entries
-            const { data: periods } = await supabase.from('periods').select('*').eq('school_id', userProfile.school_id).order('sort_order');
-            const { data: schedule } = await supabase.from('timetable').select('*').eq('teacher_id', userProfile.id);
-
-            const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-            let html = `<div class="grid grid-cols-6 gap-4 min-w-[800px]"><div></div>`;
-            
-            days.forEach(d => html += `<div class="text-center text-xs font-bold text-slate-500 uppercase tracking-widest">${d}</div>`);
-
-            periods.forEach(p => {
-                html += `<div class="h-24 flex flex-col justify-center items-end pr-4 border-r border-white/5">
-                            <span class="text-lg font-bold text-white">${p.start_time}</span>
-                            <span class="text-[10px] text-slate-500 uppercase">Period</span>
-                         </div>`;
-
-                for (let i = 0; i < 5; i++) {
-                    const entry = schedule.find(s => s.day_index === i && s.period_id === p.id);
-                    if (entry) {
-                        html += `
-                        <div class="h-24 teacher-slot rounded-2xl p-4 flex flex-col justify-between border border-white/10">
-                            <span class="text-[10px] font-black opacity-60 uppercase">Grade ${entry.grade}-${entry.class_name}</span>
-                            <span class="font-bold text-sm truncate">${entry.subject}</span>
-                            <div class="flex justify-between items-center opacity-60">
-                                <i data-lucide="map-pin" class="w-3 h-3"></i>
-                                <span class="text-[9px]">Main Hall</span>
-                            </div>
-                        </div>`;
-                    } else {
-                        html += `<div class="h-24 glass-card rounded-2xl border-dashed opacity-20"></div>`;
-                    }
-                }
+            // Step B: Sign up the Principal in Auth
+            const { data: authData, error: authError } = await _supabase.auth.signUp({
+                email: pEmail,
+                password: pPass,
+                options: { data: { full_name: pName } }
             });
 
-            container.innerHTML = html + `</div>`;
-            lucide.createIcons();
+            if (authError) throw authError;
+            if (!authData.user) throw new Error("Auth failed - Check if email is already taken.");
+
+            // Step C: Create the Profile linking the Auth User to the School
+            const { error: profileError } = await _supabase
+                .from('profiles')
+                .insert([{
+                    id: authData.user.id,
+                    name: pName,
+                    email: pEmail,
+                    role: 'principal',
+                    school_code: code
+                }]);
+
+            if (profileError) throw profileError;
+
+            alert(`SUCCESS! School Registered.\nCODE: ${code}\nShare this code with your teachers.`);
+            window.location.reload(); // Refresh to login
+
+        } catch (err) {
+            console.error("Registration Error:", err);
+            alert("Error: " + err.message);
         }
+    }
 
-        // --- PERIOD EDITOR (MANAGER/PRINCIPAL) ---
-        async function loadPeriodEditor() {
-            document.getElementById('view-title').innerText = "Timeline Settings";
-            const container = document.getElementById('content-view');
-            
-            const { data: periods } = await supabase.from('periods').select('*').eq('school_id', userProfile.school_id).order('sort_order');
+    // --- 3. TEACHER REGISTRATION ---
+    async function handleRegTeacher() {
+        const tCode = document.getElementById('tCode').value.toUpperCase();
+        const tName = document.getElementById('tName').value;
+        const tEmail = document.getElementById('tEmail').value;
+        const tPass = document.getElementById('tPass').value;
 
-            let html = `
-                <div class="max-w-2xl mx-auto space-y-6">
-                    <div class="bg-indigo-600/10 p-6 rounded-3xl border border-indigo-500/20 mb-8">
-                        <h4 class="font-bold text-indigo-400 mb-2">How it works</h4>
-                        <p class="text-sm text-slate-400">Managers can define the start times for each period. Changing these will update all class timetables instantly.</p>
-                    </div>
-                    <div class="space-y-3">
-            `;
+        try {
+            // Step A: Verify School Code Exists
+            const { data: school, error: sError } = await _supabase
+                .from('schools')
+                .select('code')
+                .eq('code', tCode)
+                .single();
 
-            periods.forEach(p => {
-                html += `
-                <div class="glass-panel p-4 rounded-2xl flex items-center justify-between">
-                    <span class="font-mono text-indigo-400">Period ${p.sort_order + 1}</span>
-                    <input type="time" value="${p.start_time}" onchange="updatePeriodTime('${p.id}', this.value)" 
-                           class="bg-white/5 border border-white/10 rounded-lg px-4 py-2 outline-none focus:border-indigo-500">
-                    <button class="text-slate-500 hover:text-white"><i data-lucide="grip-vertical"></i></button>
-                </div>`;
+            if (!school || sError) throw new Error("Invalid School Code. Please check with your principal.");
+
+            // Step B: Auth Sign up
+            const { data: authData, error: authError } = await _supabase.auth.signUp({
+                email: tEmail,
+                password: tPass
             });
 
-            container.innerHTML = html + `</div><button class="w-full mt-6 py-4 glass-card rounded-2xl border-dashed text-slate-400 hover:text-white">+ Add New Period</button></div>`;
-            lucide.createIcons();
-        }
+            if (authError) throw authError;
 
-        async function updatePeriodTime(id, time) {
-            const { error } = await supabase.from('periods').update({ start_time: time }).eq('id', id);
-            if (error) alert("Error updating time");
-        }
+            // Step C: Create Teacher Profile
+            const { error: profileError } = await _supabase
+                .from('profiles')
+                .insert([{
+                    id: authData.user.id,
+                    name: tName,
+                    email: tEmail,
+                    role: 'teacher',
+                    school_code: tCode
+                }]);
 
-        function loadDashboard() {
-            document.getElementById('view-title').innerText = "Overview";
-            document.getElementById('content-view').innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="glass-panel p-10 rounded-[40px] relative overflow-hidden">
-                        <i data-lucide="zap" class="absolute -right-10 -top-10 w-40 h-40 text-indigo-500 opacity-5"></i>
-                        <h4 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Welcome back</h4>
-                        <h2 class="text-4xl font-bold">${userProfile.full_name}</h2>
-                        <div class="mt-8 flex gap-4">
-                            <span class="px-4 py-2 bg-indigo-600/20 text-indigo-400 rounded-full text-xs font-bold uppercase">${userProfile.role}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            lucide.createIcons();
-        }
+            if (profileError) throw profileError;
 
-        async function signOut() {
-            await supabase.auth.signOut();
-            location.reload();
-        }
+            alert("Teacher Registered Successfully! You can now login.");
+            render(); // Switch back to login view
 
-        window.onload = checkUser;
-        lucide.createIcons();
-    </script>
+        } catch (err) {
+            console.error("Teacher Reg Error:", err);
+            alert(err.message);
+        }
+    }
+
+    // --- 4. LOGIN FIX ---
+    async function handleLogin() {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('pass').value;
+
+        try {
+            const { data, error } = await _supabase.auth.signInWithPassword({ 
+                email: email, 
+                password: pass 
+            });
+
+            if (error) throw error;
+
+            // Fetch Profile Data
+            const { data: profile, error: pError } = await _supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+
+            if (pError) throw new Error("Profile not found.");
+
+            state.currentUser = profile;
+            render();
+            if (profile.role !== 'teacher') {
+                updateClasses(); 
+            }
+            renderGrid();
+
+        } catch (err) {
+            alert("Login Failed: " + err.message);
+        }
+    }
+</script>
 </body>
 </html>
