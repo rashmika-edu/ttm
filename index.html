@@ -3,237 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lumina School TTM | K.A.V.Rashmika</title>
+    <title>EduSched SL | Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root { --glass: rgba(15, 23, 42, 0.8); --glass-light: rgba(255, 255, 255, 0.03); }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; margin: 0; }
-        .glass-panel { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
-        .glass-card { background: var(--glass-light); border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; }
-        .glass-card:hover { border-color: #4f46e5; background: rgba(79, 70, 229, 0.05); }
-        .teacher-slot { background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3); }
-        .active-nav { background: rgba(79, 70, 229, 0.2); color: #818cf8; border-left: 4px solid #4f46e5; }
-        .dev-signature { font-size: 10px; letter-spacing: 2px; opacity: 0.4; text-transform: uppercase; text-align: center; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-    </style>
-</head>
-<body class="min-h-screen">
-
-    <div id="auth-layer" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 p-6">
-        <div class="glass-panel w-full max-w-md rounded-[40px] p-10 shadow-2xl">
-            <div class="text-center mb-10">
-                <i data-lucide="sparkles" class="w-12 h-12 text-indigo-400 mx-auto mb-4"></i>
-                <h1 class="text-3xl font-bold tracking-tight">Lumina TTM</h1>
-                <div class="dev-signature mt-1">By K.A.V.Rashmika</div>
-            </div>
-            
-            <div id="auth-box">
-                <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
-                    <div id="reg-fields" class="hidden space-y-4">
-                        <select id="role" onchange="toggleRegUI()" class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
-                            <option value="teacher">Teacher</option>
-                            <option value="manager">Manager</option>
-                            <option value="principal">Principal</option>
-                        </select>
-                        <input type="text" id="fullname" placeholder="Full Name" class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
-                        <input type="text" id="v_code" placeholder="Verification Code" class="w-full bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl outline-none text-amber-200">
-                    </div>
-                    <input type="email" id="email" placeholder="Email" required class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
-                    <input type="password" id="password" placeholder="Password" required class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
-                    <button type="submit" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold shadow-lg">Continue</button>
-                    <p class="text-center text-xs text-slate-500 mt-4 cursor-pointer" onclick="toggleAuthMode()">Switch Login/Register</p>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="main-app" class="hidden h-screen flex">
-        <aside class="w-72 glass-panel border-y-0 border-l-0 flex flex-col">
-            <div class="p-8">
-                <h2 class="text-2xl font-bold flex items-center gap-2 mb-8">
-                    <i data-lucide="layers" class="text-indigo-500"></i> Lumina
-                </h2>
-                <div class="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <p id="ui-school" class="text-[10px] font-black text-indigo-400 uppercase tracking-widest"></p>
-                    <p id="ui-user" class="text-sm font-semibold truncate mt-1"></p>
-                </div>
-            </div>
-
-            <nav id="sidebar-nav" class="flex-1 px-4 space-y-2"></nav>
-
-            <div class="p-8 border-t border-white/5">
-                <button onclick="signOut()" class="flex items-center gap-3 text-slate-500 hover:text-white transition w-full mb-4">
-                    <i data-lucide="log-out" class="w-4 h-4"></i> Logout
-                </button>
-                <div class="dev-signature">Developer by K.A.V.Rashmika</div>
-            </div>
-        </aside>
-
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <header class="h-20 flex items-center justify-between px-10 border-b border-white/5">
-                <h3 id="view-title" class="text-xl font-bold">Schedule</h3>
-                <div id="view-actions"></div>
-            </header>
-
-            <div id="content-view" class="flex-1 p-10 overflow-y-auto no-scrollbar">
-                </div>
-            
-            <div class="p-4 bg-black/20 text-center">
-                <div class="dev-signature">© Developer by K.A.V.Rashmika</div>
-            </div>
-        </main>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 font-sans text-slate-900">
+    <div id="app"></div>
 
-<script>
-    // --- 1. INITIALIZATION ---
-    // Replace these with your actual Supabase project details
-    const SUPABASE_URL = 'https://your-project-id.supabase.co';
-    const SUPABASE_ANON_KEY = 'your-anon-key';
-    
-    // Correct way to initialize with the CDN script
-    const { createClient } = supabase;
-    const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <script>
+        // --- CONFIGURATION ---
+        const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
+        const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
+        const _supabase = supabase.createClient(SB_URL, SB_KEY);
 
-    // --- 2. PRINCIPAL/SCHOOL REGISTRATION ---
-    async function handleRegSchool() {
-        const sName = document.getElementById('sName').value;
-        const pName = document.getElementById('pName').value;
-        const pEmail = document.getElementById('pEmail').value;
-        const pPass = document.getElementById('pPass').value;
-        const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+        // --- APP STATE ---
+        let state = {
+            view: 'login', // login, register, dashboard
+            user: null,
+            loading: false,
+            timetable: [],
+            selectedGrade: '6',
+            selectedClass: 'A'
+        };
 
-        if (!sName || !pEmail || !pPass) {
-            alert("Please fill in all fields.");
-            return;
-        }
-
-        try {
-            console.log("Starting School Registration...");
-
-            // Step A: Create the School entry first (required for Foreign Key)
-            const { error: schoolError } = await _supabase
-                .from('schools')
-                .insert([{ name: sName, code: code }]);
+        // --- CORE FUNCTIONS ---
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const pass = document.getElementById('loginPass').value;
             
-            if (schoolError) throw new Error("School Creation Failed: " + schoolError.message);
+            try {
+                const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+                if (error) throw error;
 
-            // Step B: Sign up the Principal in Auth
-            const { data: authData, error: authError } = await _supabase.auth.signUp({
-                email: pEmail,
-                password: pPass,
-                options: { data: { full_name: pName } }
-            });
+                const { data: profile, error: pError } = await _supabase
+                    .from('profiles').select('*').eq('id', data.user.id).single();
+                
+                if (pError) throw new Error("Profile not found. Contact Admin.");
 
-            if (authError) throw authError;
-            if (!authData.user) throw new Error("Auth failed - Check if email is already taken.");
-
-            // Step C: Create the Profile linking the Auth User to the School
-            const { error: profileError } = await _supabase
-                .from('profiles')
-                .insert([{
-                    id: authData.user.id,
-                    name: pName,
-                    email: pEmail,
-                    role: 'principal',
-                    school_code: code
-                }]);
-
-            if (profileError) throw profileError;
-
-            alert(`SUCCESS! School Registered.\nCODE: ${code}\nShare this code with your teachers.`);
-            window.location.reload(); // Refresh to login
-
-        } catch (err) {
-            console.error("Registration Error:", err);
-            alert("Error: " + err.message);
+                state.user = profile;
+                state.view = 'dashboard';
+                render();
+                fetchTimetable();
+            } catch (err) { alert("Login Error: " + err.message); }
         }
-    }
 
-    // --- 3. TEACHER REGISTRATION ---
-    async function handleRegTeacher() {
-        const tCode = document.getElementById('tCode').value.toUpperCase();
-        const tName = document.getElementById('tName').value;
-        const tEmail = document.getElementById('tEmail').value;
-        const tPass = document.getElementById('tPass').value;
+        async function handleRegister(e) {
+            e.preventDefault();
+            const sName = document.getElementById('regSchoolName').value;
+            const pName = document.getElementById('regName').value;
+            const email = document.getElementById('regEmail').value;
+            const pass = document.getElementById('regPass').value;
+            const code = Math.random().toString(36).substring(2, 7).toUpperCase();
 
-        try {
-            // Step A: Verify School Code Exists
-            const { data: school, error: sError } = await _supabase
-                .from('schools')
-                .select('code')
-                .eq('code', tCode)
-                .single();
+            try {
+                // 1. Create Auth Account
+                const { data: authData, error: authErr } = await _supabase.auth.signUp({ email, password: pass });
+                if (authErr) throw authErr;
+                if (!authData.user) throw new Error("Signup failed. Email might be in use.");
 
-            if (!school || sError) throw new Error("Invalid School Code. Please check with your principal.");
+                // 2. Create School
+                const { error: sErr } = await _supabase.from('schools').insert([{ code, name: sName }]);
+                if (sErr) throw sErr;
 
-            // Step B: Auth Sign up
-            const { data: authData, error: authError } = await _supabase.auth.signUp({
-                email: tEmail,
-                password: tPass
-            });
-
-            if (authError) throw authError;
-
-            // Step C: Create Teacher Profile
-            const { error: profileError } = await _supabase
-                .from('profiles')
-                .insert([{
-                    id: authData.user.id,
-                    name: tName,
-                    email: tEmail,
-                    role: 'teacher',
-                    school_code: tCode
+                // 3. Create Profile
+                const { error: pErr } = await _supabase.from('profiles').insert([{
+                    id: authData.user.id, name: pName, email: email, role: 'principal', school_code: code
                 }]);
+                if (pErr) throw pErr;
 
-            if (profileError) throw profileError;
-
-            alert("Teacher Registered Successfully! You can now login.");
-            render(); // Switch back to login view
-
-        } catch (err) {
-            console.error("Teacher Reg Error:", err);
-            alert(err.message);
+                alert(`Success! Your School Code is: ${code}`);
+                state.view = 'login';
+                render();
+            } catch (err) { alert("Registration Failed: " + err.message); }
         }
-    }
 
-    // --- 4. LOGIN FIX ---
-    async function handleLogin() {
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('pass').value;
-
-        try {
-            const { data, error } = await _supabase.auth.signInWithPassword({ 
-                email: email, 
-                password: pass 
-            });
-
-            if (error) throw error;
-
-            // Fetch Profile Data
-            const { data: profile, error: pError } = await _supabase
-                .from('profiles')
+        async function fetchTimetable() {
+            const { data, error } = await _supabase.from('timetables')
                 .select('*')
-                .eq('id', data.user.id)
-                .single();
-
-            if (pError) throw new Error("Profile not found.");
-
-            state.currentUser = profile;
-            render();
-            if (profile.role !== 'teacher') {
-                updateClasses(); 
+                .eq('school_code', state.user.school_code)
+                .eq('grade', state.selectedGrade)
+                .eq('class_name', state.selectedClass);
+            
+            if (!error) {
+                state.timetable = data;
+                render();
             }
-            renderGrid();
-
-        } catch (err) {
-            alert("Login Failed: " + err.message);
         }
-    }
-</script>
+
+        async function saveSlot(day, slotIndex) {
+            if (state.user.role !== 'principal') return;
+            
+            const sub = prompt("Enter Subject:");
+            const tea = prompt("Enter Teacher Name:");
+            if (!sub) return;
+
+            const { error } = await _supabase.from('timetables').upsert({
+                school_code: state.user.school_code,
+                grade: state.selectedGrade,
+                class_name: state.selectedClass,
+                day: day,
+                slot_index: slotIndex,
+                subject: sub,
+                teacher_name: tea
+            }, { onConflict: 'school_code, grade, class_name, day, slot_index' });
+
+            if (error) alert(error.message);
+            else fetchTimetable();
+        }
+
+        // --- UI COMPONENTS ---
+        function render() {
+            const root = document.getElementById('app');
+            
+            if (state.view === 'login') {
+                root.innerHTML = `
+                    <div class="min-h-screen flex items-center justify-center p-6">
+                        <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md">
+                            <h1 class="text-3xl font-bold mb-6 text-blue-600">EduSched Login</h1>
+                            <form onsubmit="handleLogin(event)" class="space-y-4">
+                                <input id="loginEmail" type="email" placeholder="Email Address" class="w-full p-4 border rounded-xl" required>
+                                <input id="loginPass" type="password" placeholder="Password" class="w-full p-4 border rounded-xl" required>
+                                <button type="submit" class="w-full bg-blue-600 text-white p-4 rounded-xl font-bold hover:bg-blue-700">Sign In</button>
+                            </form>
+                            <button onclick="state.view='register';render()" class="w-full mt-4 text-slate-500">Register New School</button>
+                        </div>
+                    </div>`;
+            } else if (state.view === 'register') {
+                root.innerHTML = `
+                    <div class="min-h-screen flex items-center justify-center p-6">
+                        <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md">
+                            <h1 class="text-3xl font-bold mb-6 text-green-600">Register School</h1>
+                            <form onsubmit="handleRegister(event)" class="space-y-3">
+                                <input id="regSchoolName" placeholder="School Name" class="w-full p-3 border rounded-xl" required>
+                                <input id="regName" placeholder="Principal Name" class="w-full p-3 border rounded-xl" required>
+                                <input id="regEmail" type="email" placeholder="Email" class="w-full p-3 border rounded-xl" required>
+                                <input id="regPass" type="password" placeholder="Password (min 6 chars)" class="w-full p-3 border rounded-xl" required>
+                                <button type="submit" class="w-full bg-green-600 text-white p-4 rounded-xl font-bold">Create Account</button>
+                            </form>
+                            <button onclick="state.view='login';render()" class="w-full mt-4 text-slate-500">Back to Login</button>
+                        </div>
+                    </div>`;
+            } else {
+                root.innerHTML = `
+                    <nav class="bg-white border-b p-4 flex justify-between items-center shadow-sm">
+                        <div class="font-bold text-xl text-blue-600">EduSched | ${state.user.school_code}</div>
+                        <button onclick="location.reload()" class="text-red-500 font-medium">Logout</button>
+                    </nav>
+                    <div class="p-6 max-w-6xl mx-auto">
+                        <div class="flex gap-4 mb-8 bg-white p-4 rounded-2xl shadow-sm">
+                            <select onchange="state.selectedGrade=this.value;fetchTimetable()" class="p-2 border rounded-lg">
+                                ${[6,7,8,9,10,11,12,13].map(g => `<option ${state.selectedGrade == g ? 'selected':''}>${g}</option>`).join('')}
+                            </select>
+                            <select onchange="state.selectedClass=this.value;fetchTimetable()" class="p-2 border rounded-lg">
+                                ${['A','B','C','D','E'].map(c => `<option ${state.selectedClass == c ? 'selected':''}>${c}</option>`).join('')}
+                            </select>
+                            <div class="ml-auto text-slate-500">Role: <span class="capitalize font-bold text-slate-800">${state.user.role}</span></div>
+                        </div>
+                        <div class="grid grid-cols-6 gap-2 bg-white p-4 rounded-2xl shadow-lg overflow-x-auto">
+                            <div class="font-bold p-2 text-center text-slate-400 border-b">Time</div>
+                            ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(d => `<div class="font-bold p-2 text-center border-b">${d}</div>`).join('')}
+                            ${renderGrid()}
+                        </div>
+                    </div>`;
+            }
+            lucide.createIcons();
+        }
+
+        function renderGrid() {
+            let html = '';
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            for (let i = 1; i <= 8; i++) {
+                html += `<div class="p-4 border-r font-medium text-slate-400">Slot ${i}</div>`;
+                days.forEach(day => {
+                    const slot = state.timetable.find(s => s.day === day && s.slot_index === i);
+                    html += `
+                        <div onclick="saveSlot('${day}', ${i})" class="p-4 border rounded-lg cursor-pointer hover:bg-blue-50 transition-colors h-24">
+                            <div class="font-bold text-blue-800">${slot ? slot.subject : '+'}</div>
+                            <div class="text-xs text-slate-500">${slot ? slot.teacher_name : 'Click to add'}</div>
+                        </div>`;
+                });
+            }
+            return html;
+        }
+
+        render();
+    </script>
 </body>
 </html>
