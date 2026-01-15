@@ -3,215 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lumina School TTM | TimeTable Manager</title>
+    <title>Lumina TTM | School Schedule Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --glass: rgba(15, 23, 42, 0.8); --glass-light: rgba(255, 255, 255, 0.03); }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; margin: 0; }
-        .glass-panel { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
-        .glass-card { background: var(--glass-light); border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; }
-        .glass-card:hover { border-color: #4f46e5; background: rgba(79, 70, 229, 0.05); }
-        .teacher-slot { background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3); }
-        .active-nav { background: rgba(79, 70, 229, 0.2); color: #818cf8; border-left: 4px solid #4f46e5; }
-        .dev-signature { font-size: 10px; letter-spacing: 2px; opacity: 0.4; text-transform: uppercase; text-align: center; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        :root { --accent: #6366f1; --accent-hover: #4f46e5; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; overflow: hidden; }
+        
+        /* Animated Background */
+        .bg-glow {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 600px; height: 600px; background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(2,6,23,0) 70%);
+            z-index: -1; filter: blur(60px); pointer-events: none;
+        }
+
+        .glass-panel { 
+            background: rgba(15, 23, 42, 0.6); 
+            backdrop-filter: blur(24px); 
+            border: 1px solid rgba(255,255,255,0.08); 
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+
+        .input-group input, .input-group select {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            border-color: var(--accent);
+            background: rgba(255,255,255,0.05);
+            box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
+        .btn-primary:active { transform: translateY(0); }
+
+        .dev-signature { font-size: 10px; letter-spacing: 3px; opacity: 0.3; text-transform: uppercase; }
     </style>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen flex items-center justify-center p-6">
+    <div class="bg-glow"></div>
 
-    <div id="auth-layer" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 p-6">
-        <div class="glass-panel w-full max-w-md rounded-[40px] p-10 shadow-2xl">
-            <div class="text-center mb-10">
-                <i data-lucide="sparkles" class="w-12 h-12 text-indigo-400 mx-auto mb-4"></i>
-                <h1 class="text-3xl font-bold tracking-tight">Lumina TTM</h1>
-                <div class="dev-signature mt-1">By K.A.V.Rashmika</div>
-            </div>
+    <div id="auth-layer" class="w-full max-w-[440px] z-10">
+        <div class="glass-panel rounded-[2.5rem] p-10 relative overflow-hidden">
+            <div class="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl"></div>
             
-            <div id="auth-box">
-                <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
-                    <div id="reg-fields" class="hidden space-y-4">
-                        <select id="role" class="w-full bg-slate-900 border border-white/10 p-3 rounded-xl outline-none text-white">
-                            <option value="teacher">Teacher</option>
-                            <option value="manager">Manager</option>
-                            <option value="principal">Principal</option>
-                        </select>
-                        <input type="text" id="fullname" placeholder="Full Name" class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
-                        <input type="text" id="v_code" placeholder="Verification Code" class="w-full bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl outline-none text-amber-200">
-                    </div>
-                    <input type="email" id="email" placeholder="Email" required class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
-                    <input type="password" id="password" placeholder="Password" required class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
-                    <button type="submit" id="submit-btn" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold shadow-lg hover:bg-indigo-500 transition">Continue</button>
-                    <p class="text-center text-xs text-slate-500 mt-4 cursor-pointer hover:text-indigo-400" onclick="toggleAuthMode()">Switch Login/Register</p>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="main-app" class="hidden h-screen flex">
-        <aside class="w-72 glass-panel border-y-0 border-l-0 flex flex-col">
-            <div class="p-8">
-                <h2 class="text-2xl font-bold flex items-center gap-2 mb-8">
-                    <i data-lucide="layers" class="text-indigo-500"></i> Lumina
-                </h2>
-                <div class="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <p id="ui-school" class="text-[10px] font-black text-indigo-400 uppercase tracking-widest"></p>
-                    <p id="ui-user" class="text-sm font-semibold truncate mt-1"></p>
+            <div class="text-center mb-10 relative">
+                <div class="inline-flex p-3 bg-indigo-500/10 rounded-2xl mb-4">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-indigo-400"></i>
                 </div>
+                <h1 id="auth-title" class="text-3xl font-bold tracking-tight text-white">Welcome Back</h1>
+                <p id="auth-subtitle" class="text-slate-400 mt-2 text-sm">Please enter your details to sign in</p>
             </div>
 
-            <nav id="sidebar-nav" class="flex-1 px-4 space-y-2"></nav>
+            <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
+                <div id="reg-fields" class="hidden space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div class="input-group">
+                        <label class="text-xs font-semibold text-slate-500 ml-1 mb-1 block">FULL NAME</label>
+                        <input type="text" id="fullname" placeholder="e.g. John Doe" class="w-full p-3 rounded-xl outline-none text-white">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label class="text-xs font-semibold text-slate-500 ml-1 mb-1 block">ROLE</label>
+                            <select id="role" class="w-full p-3 rounded-xl outline-none text-white appearance-none">
+                                <option value="teacher">Teacher</option>
+                                <option value="manager">Manager</option>
+                                <option value="principal">Principal</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label class="text-xs font-semibold text-amber-500 ml-1 mb-1 block">JOIN CODE</label>
+                            <input type="text" id="v_code" placeholder="School ID" class="w-full p-3 rounded-xl outline-none text-amber-200 border-amber-500/20 bg-amber-500/5">
+                        </div>
+                    </div>
+                </div>
 
-            <div class="p-8 border-t border-white/5">
-                <button onclick="signOut()" class="flex items-center gap-3 text-slate-500 hover:text-white transition w-full mb-4">
-                    <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+                <div class="input-group">
+                    <label class="text-xs font-semibold text-slate-500 ml-1 mb-1 block">EMAIL ADDRESS</label>
+                    <input type="email" id="email" required placeholder="name@school.com" class="w-full p-3 rounded-xl outline-none text-white">
+                </div>
+
+                <div class="input-group">
+                    <label class="text-xs font-semibold text-slate-500 ml-1 mb-1 block">PASSWORD</label>
+                    <input type="password" id="password" required placeholder="••••••••" class="w-full p-3 rounded-xl outline-none text-white">
+                </div>
+
+                <button type="submit" id="submit-btn" class="w-full btn-primary py-4 rounded-2xl font-bold text-white shadow-xl mt-6">
+                    Sign In
                 </button>
-                <div class="dev-signature">Developed by K.A.V.Rashmika</div>
-            </div>
-        </aside>
 
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <header class="h-20 flex items-center justify-between px-10 border-b border-white/5">
-                <h3 id="view-title" class="text-xl font-bold">Schedule</h3>
-                <div id="view-actions"></div>
-            </header>
-
-            <div id="content-view" class="flex-1 p-10 overflow-y-auto no-scrollbar"></div>
-            
-            <div class="p-4 bg-black/20 text-center">
-                <div class="dev-signature">© Developed by K.A.V.Rashmika</div>
-            </div>
-        </main>
+                <p class="text-center text-sm text-slate-500 mt-8">
+                    <span id="toggle-text">Don't have an account?</span>
+                    <button type="button" onclick="toggleAuthMode()" class="text-indigo-400 font-bold hover:underline ml-1">
+                        <span id="toggle-btn-label">Create Account</span>
+                    </button>
+                </p>
+            </form>
+        </div>
+        <div class="dev-signature mt-8 text-center">Built by K.A.V.Rashmika</div>
     </div>
 
-<script>
-    // --- CORE STATE ---
-    const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
-    const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
-    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
-    
-    let userProfile = null;
-    let isRegistering = false;
+    <div id="main-app" class="hidden">...</div>
 
-    // --- AUTH LOGIC ---
-    function toggleAuthMode() {
-        isRegistering = !isRegistering;
-        document.getElementById('reg-fields').classList.toggle('hidden', !isRegistering);
-        document.getElementById('submit-btn').innerText = isRegistering ? "Create Account" : "Continue";
-    }
-
-    async function handleAuth(e) {
-        e.preventDefault();
-        const submitBtn = document.getElementById('submit-btn');
-        submitBtn.disabled = true;
-        submitBtn.innerText = "Processing...";
-
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const role = document.getElementById('role').value;
-        const fullName = document.getElementById('fullname').value;
-        const vCode = document.getElementById('v_code').value;
-
-        try {
-            if (isRegistering) {
-                // 1. Validation
-                if (!fullName || !vCode) throw new Error("Please fill in all registration fields.");
-
-                // 2. School Lookup (Assuming the school name or a custom 'join_code' field is used as v_code)
-                // For this example, we'll fetch a school where the ID or Name matches the code
-                const { data: school, error: sError } = await supabase
-                    .from('schools')
-                    .select('id')
-                    .or(`name.eq."${vCode}",id.eq."${vCode}"`)
-                    .single();
-
-                if (sError || !school) throw new Error("Invalid Verification Code. Please contact your administrator.");
-
-                // 3. Auth SignUp
-                const { data: authData, error: authError } = await supabase.auth.signUp({ 
-                    email, 
-                    password,
-                    options: { data: { full_name: fullName } } 
-                });
-                
-                if (authError) throw authError;
-
-                // 4. Create Profile
-                if (authData.user) {
-                    const { error: pError } = await supabase.from('profiles').insert([{ 
-                        id: authData.user.id, 
-                        full_name: fullName, 
-                        role: role,
-                        school_id: school.id 
-                    }]);
-                    
-                    if (pError) throw pError;
-                    alert("Registration successful! Check your email for a confirmation link, then Login.");
-                    toggleAuthMode();
-                }
-            } else {
-                // Login Flow
-                const { error } = await supabase.signInWithPassword({ email, password });
-                if (error) throw error;
-                await checkUser();
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Error: " + err.message);
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerText = isRegistering ? "Create Account" : "Continue";
-        }
-    }
-
-    async function checkUser() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data: profile, error } = await supabase.from('profiles')
-                .select('*, schools(*)')
-                .eq('id', user.id)
-                .single();
-            
-            if (profile) {
-                userProfile = profile;
-                initUI();
-            } else {
-                // If profile creation failed during registration, sign out to try again
-                console.error("Profile not found for authenticated user.");
-                await supabase.auth.signOut();
-            }
-        }
-    }
-
-    function initUI() {
-        document.getElementById('auth-layer').classList.add('hidden');
-        document.getElementById('main-app').classList.remove('hidden');
-        document.getElementById('ui-school').innerText = userProfile.schools?.name || "School Not Linked";
-        document.getElementById('ui-user').innerText = userProfile.full_name;
-
-        const nav = document.getElementById('sidebar-nav');
-        nav.innerHTML = '';
+    <script>
+        const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
+        const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
+        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
         
-        addLink(nav, 'Dashboard', 'home', loadDashboard);
+        let isRegistering = false;
 
-        if (userProfile.role === 'teacher') {
-            addLink(nav, 'My Timetable', 'calendar-days', loadTeacherTimetable);
-        } else {
-            addLink(nav, 'School Timetable', 'grid', () => alert("Loading Grid..."));
-            addLink(nav, 'Period Management', 'clock', loadPeriodEditor);
+        function toggleAuthMode() {
+            isRegistering = !isRegistering;
+            const regFields = document.getElementById('reg-fields');
+            const title = document.getElementById('auth-title');
+            const subtitle = document.getElementById('auth-subtitle');
+            const submitBtn = document.getElementById('submit-btn');
+            const toggleText = document.getElementById('toggle-text');
+            const toggleBtnLabel = document.getElementById('toggle-btn-label');
+
+            if (isRegistering) {
+                regFields.classList.remove('hidden');
+                title.innerText = "Join Lumina";
+                subtitle.innerText = "Start managing your school schedule";
+                submitBtn.innerText = "Register Account";
+                toggleText.innerText = "Already have an account?";
+                toggleBtnLabel.innerText = "Sign In";
+            } else {
+                regFields.classList.add('hidden');
+                title.innerText = "Welcome Back";
+                subtitle.innerText = "Please enter your details to sign in";
+                submitBtn.innerText = "Sign In";
+                toggleText.innerText = "Don't have an account?";
+                toggleBtnLabel.innerText = "Create Account";
+            }
         }
 
-        if (userProfile.role === 'principal') {
-            addLink(nav, 'Access Codes', 'key', () => alert("Loading Codes..."));
+        async function handleAuth(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+
+            try {
+                if (isRegistering) {
+                    const fullName = document.getElementById('fullname').value;
+                    const role = document.getElementById('role').value;
+                    const vCode = document.getElementById('v_code').value;
+
+                    if (!fullName || !vCode) throw new Error("Full name and Join Code are required.");
+
+                    // Verify School
+                    const { data: school, error: sError } = await supabase
+                        .from('schools')
+                        .select('id')
+                        .or(`name.eq."${vCode}",id.eq."${vCode}"`)
+                        .single();
+
+                    if (sError || !school) throw new Error("Invalid Join Code. Please contact your admin.");
+
+                    // Create User
+                    const { data: authData, error: authError } = await supabase.auth.signUp({ 
+                        email, 
+                        password 
+                    });
+
+                    if (authError) throw authError;
+
+                    // Create Profile
+                    if (authData.user) {
+                        const { error: pError } = await supabase.from('profiles').insert([{
+                            id: authData.user.id,
+                            full_name: fullName,
+                            role: role,
+                            school_id: school.id
+                        }]);
+                        if (pError) throw pError;
+                        alert("Account created! Check your email to verify, then sign in.");
+                        toggleAuthMode();
+                    }
+                } else {
+                    const { error } = await supabase.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    location.reload(); // Refresh to trigger checkUser
+                }
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = isRegistering ? "Register Account" : "Sign In";
+            }
         }
 
         lucide.createIcons();
-        loadDashboard();
-    }
-
-    // ... (Keep existing addLink, loadDashboard, loadTeacherTimetable, etc.)
-</script>
+    </script>
 </body>
 </html>
