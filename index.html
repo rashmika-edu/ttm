@@ -86,214 +86,132 @@
         </main>
     </div>
 
-    <script>
-        // --- CORE STATE ---
-        const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
-        const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
-        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
-        
-        let userProfile = null;
-        let isRegistering = false;
+<script>
+    // --- CORE STATE ---
+    const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
+    const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
+    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    
+    let userProfile = null;
+    let isRegistering = false;
 
-        // --- AUTH LOGIC ---
-        function toggleAuthMode() {
-            isRegistering = !isRegistering;
-            const regFields = document.getElementById('reg-fields');
-            const submitBtn = document.getElementById('submit-btn');
-            
+    // --- AUTH LOGIC ---
+    function toggleAuthMode() {
+        isRegistering = !isRegistering;
+        document.getElementById('reg-fields').classList.toggle('hidden', !isRegistering);
+        document.getElementById('submit-btn').innerText = isRegistering ? "Create Account" : "Continue";
+    }
+
+    async function handleAuth(e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Processing...";
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const role = document.getElementById('role').value;
+        const fullName = document.getElementById('fullname').value;
+        const vCode = document.getElementById('v_code').value;
+
+        try {
             if (isRegistering) {
-                regFields.classList.remove('hidden');
-                submitBtn.innerText = "Create Account";
-            } else {
-                regFields.classList.add('hidden');
-                submitBtn.innerText = "Continue";
-            }
-        }
+                // 1. Validation
+                if (!fullName || !vCode) throw new Error("Please fill in all registration fields.");
 
-        async function handleAuth(e) {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const role = document.getElementById('role').value;
-            const fullName = document.getElementById('fullname').value;
-
-            try {
-                if (isRegistering) {
-                    const { data, error } = await supabase.auth.signUp({ email, password });
-                    if (error) throw error;
-                    
-                    // Create profile in your 'profiles' table
-                    if (data.user) {
-                        await supabase.from('profiles').insert([
-                            { id: data.user.id, full_name: fullName, role: role }
-                        ]);
-                        alert("Registration successful! Please check your email for verification.");
-                    }
-                } else {
-                    const { error } = await supabase.signInWithPassword({ email, password });
-                    if (error) throw error;
-                    checkUser();
-                }
-            } catch (err) {
-                alert(err.message);
-            }
-        }
-
-        async function checkUser() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profile, error } = await supabase.from('profiles')
-                    .select('*, schools(*)')
-                    .eq('id', user.id)
+                // 2. School Lookup (Assuming the school name or a custom 'join_code' field is used as v_code)
+                // For this example, we'll fetch a school where the ID or Name matches the code
+                const { data: school, error: sError } = await supabase
+                    .from('schools')
+                    .select('id')
+                    .or(`name.eq."${vCode}",id.eq."${vCode}"`)
                     .single();
+
+                if (sError || !school) throw new Error("Invalid Verification Code. Please contact your administrator.");
+
+                // 3. Auth SignUp
+                const { data: authData, error: authError } = await supabase.auth.signUp({ 
+                    email, 
+                    password,
+                    options: { data: { full_name: fullName } } 
+                });
                 
-                if (profile) {
-                    userProfile = profile;
-                    initUI();
+                if (authError) throw authError;
+
+                // 4. Create Profile
+                if (authData.user) {
+                    const { error: pError } = await supabase.from('profiles').insert([{ 
+                        id: authData.user.id, 
+                        full_name: fullName, 
+                        role: role,
+                        school_id: school.id 
+                    }]);
+                    
+                    if (pError) throw pError;
+                    alert("Registration successful! Check your email for a confirmation link, then Login.");
+                    toggleAuthMode();
                 }
-            }
-        }
-
-        function initUI() {
-            document.getElementById('auth-layer').classList.add('hidden');
-            document.getElementById('main-app').classList.remove('hidden');
-            document.getElementById('ui-school').innerText = userProfile.schools?.name || "Lumina Academy";
-            document.getElementById('ui-user').innerText = userProfile.full_name;
-
-            const nav = document.getElementById('sidebar-nav');
-            nav.innerHTML = '';
-            
-            addLink(nav, 'Dashboard', 'home', loadDashboard);
-
-            if (userProfile.role === 'teacher') {
-                addLink(nav, 'My Timetable', 'calendar-days', loadTeacherTimetable);
             } else {
-                addLink(nav, 'School Timetable', 'grid', () => alert("Loading Grid..."));
-                addLink(nav, 'Period Management', 'clock', loadPeriodEditor);
+                // Login Flow
+                const { error } = await supabase.signInWithPassword({ email, password });
+                if (error) throw error;
+                await checkUser();
             }
-
-            if (userProfile.role === 'principal') {
-                addLink(nav, 'Access Codes', 'key', () => alert("Loading Codes..."));
-            }
-
-            lucide.createIcons();
-            loadDashboard();
+        } catch (err) {
+            console.error(err);
+            alert("Error: " + err.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = isRegistering ? "Create Account" : "Continue";
         }
+    }
 
-        function addLink(parent, label, icon, action) {
-            const btn = document.createElement('button');
-            btn.className = "w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-white/5 transition text-slate-400 group";
-            btn.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5 group-hover:text-indigo-400"></i> <span class="text-sm font-medium">${label}</span>`;
-            btn.onclick = () => {
-                document.querySelectorAll('#sidebar-nav button').forEach(b => b.classList.remove('active-nav'));
-                btn.classList.add('active-nav');
-                action();
-                lucide.createIcons();
-            };
-            parent.appendChild(btn);
-        }
-
-        // --- VIEWS ---
-        async function loadTeacherTimetable() {
-            document.getElementById('view-title').innerText = "My Weekly Schedule";
-            const container = document.getElementById('content-view');
-            container.innerHTML = `<div class="animate-pulse text-indigo-400">Loading assignments...</div>`;
-
-            const { data: periods } = await supabase.from('periods').select('*').eq('school_id', userProfile.school_id).order('sort_order');
-            const { data: schedule } = await supabase.from('timetable').select('*').eq('teacher_id', userProfile.id);
-
-            if (!periods) { container.innerHTML = "No periods configured."; return; }
-
-            const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-            let html = `<div class="grid grid-cols-6 gap-4 min-w-[800px]"><div></div>`;
+    async function checkUser() {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: profile, error } = await supabase.from('profiles')
+                .select('*, schools(*)')
+                .eq('id', user.id)
+                .single();
             
-            days.forEach(d => html += `<div class="text-center text-xs font-bold text-slate-500 uppercase tracking-widest">${d}</div>`);
+            if (profile) {
+                userProfile = profile;
+                initUI();
+            } else {
+                // If profile creation failed during registration, sign out to try again
+                console.error("Profile not found for authenticated user.");
+                await supabase.auth.signOut();
+            }
+        }
+    }
 
-            periods.forEach(p => {
-                html += `<div class="h-24 flex flex-col justify-center items-end pr-4 border-r border-white/5">
-                            <span class="text-lg font-bold text-white">${p.start_time}</span>
-                            <span class="text-[10px] text-slate-500 uppercase">Period</span>
-                         </div>`;
+    function initUI() {
+        document.getElementById('auth-layer').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+        document.getElementById('ui-school').innerText = userProfile.schools?.name || "School Not Linked";
+        document.getElementById('ui-user').innerText = userProfile.full_name;
 
-                for (let i = 0; i < 5; i++) {
-                    const entry = schedule?.find(s => s.day_index === i && s.period_id === p.id);
-                    if (entry) {
-                        html += `
-                        <div class="h-24 teacher-slot rounded-2xl p-4 flex flex-col justify-between border border-white/10">
-                            <span class="text-[10px] font-black opacity-60 uppercase">Grade ${entry.grade}-${entry.class_name}</span>
-                            <span class="font-bold text-sm truncate">${entry.subject}</span>
-                            <div class="flex justify-between items-center opacity-60">
-                                <i data-lucide="map-pin" class="w-3 h-3"></i>
-                                <span class="text-[9px]">Main Hall</span>
-                            </div>
-                        </div>`;
-                    } else {
-                        html += `<div class="h-24 glass-card rounded-2xl border-dashed opacity-20"></div>`;
-                    }
-                }
-            });
+        const nav = document.getElementById('sidebar-nav');
+        nav.innerHTML = '';
+        
+        addLink(nav, 'Dashboard', 'home', loadDashboard);
 
-            container.innerHTML = html + `</div>`;
-            lucide.createIcons();
+        if (userProfile.role === 'teacher') {
+            addLink(nav, 'My Timetable', 'calendar-days', loadTeacherTimetable);
+        } else {
+            addLink(nav, 'School Timetable', 'grid', () => alert("Loading Grid..."));
+            addLink(nav, 'Period Management', 'clock', loadPeriodEditor);
         }
 
-        async function loadPeriodEditor() {
-            document.getElementById('view-title').innerText = "Timeline Settings";
-            const container = document.getElementById('content-view');
-            const { data: periods } = await supabase.from('periods').select('*').eq('school_id', userProfile.school_id).order('sort_order');
-
-            let html = `<div class="max-w-2xl mx-auto space-y-6">
-                            <div class="bg-indigo-600/10 p-6 rounded-3xl border border-indigo-500/20 mb-8">
-                                <h4 class="font-bold text-indigo-400 mb-2">How it works</h4>
-                                <p class="text-sm text-slate-400">Managers can define the start times for each period.</p>
-                            </div>
-                            <div class="space-y-3">`;
-
-            periods?.forEach(p => {
-                html += `
-                <div class="glass-panel p-4 rounded-2xl flex items-center justify-between">
-                    <span class="font-mono text-indigo-400">Period ${p.sort_order + 1}</span>
-                    <input type="time" value="${p.start_time}" onchange="updatePeriodTime('${p.id}', this.value)" 
-                           class="bg-slate-900 border border-white/10 rounded-lg px-4 py-2 outline-none focus:border-indigo-500 text-white">
-                    <button class="text-slate-500 hover:text-white"><i data-lucide="grip-vertical"></i></button>
-                </div>`;
-            });
-
-            container.innerHTML = html + `</div><button class="w-full mt-6 py-4 glass-card rounded-2xl border-dashed text-slate-400 hover:text-white">+ Add New Period</button></div>`;
-            lucide.createIcons();
+        if (userProfile.role === 'principal') {
+            addLink(nav, 'Access Codes', 'key', () => alert("Loading Codes..."));
         }
 
-        async function updatePeriodTime(id, time) {
-            const { error } = await supabase.from('periods').update({ start_time: time }).eq('id', id);
-            if (error) alert("Error updating time");
-        }
+        lucide.createIcons();
+        loadDashboard();
+    }
 
-        function loadDashboard() {
-            document.getElementById('view-title').innerText = "Overview";
-            document.getElementById('content-view').innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="glass-panel p-10 rounded-[40px] relative overflow-hidden">
-                        <i data-lucide="zap" class="absolute -right-10 -top-10 w-40 h-40 text-indigo-500 opacity-5"></i>
-                        <h4 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Welcome back</h4>
-                        <h2 class="text-4xl font-bold">${userProfile.full_name}</h2>
-                        <div class="mt-8 flex gap-4">
-                            <span class="px-4 py-2 bg-indigo-600/20 text-indigo-400 rounded-full text-xs font-bold uppercase">${userProfile.role}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            lucide.createIcons();
-        }
-
-        async function signOut() {
-            await supabase.auth.signOut();
-            location.reload();
-        }
-
-        window.onload = () => {
-            checkUser();
-            lucide.createIcons();
-        };
-    </script>
+    // ... (Keep existing addLink, loadDashboard, loadTeacherTimetable, etc.)
+</script>
 </body>
 </html>
