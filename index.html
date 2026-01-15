@@ -3,200 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lumina School TTM</title>
+    <title>Lumina School TTM | Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --glass: rgba(255, 255, 255, 0.7); --glass-border: rgba(255, 255, 255, 0.3); }
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .glass-panel { 
-            background: var(--glass); 
-            backdrop-filter: blur(12px); 
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-        }
-        .sidebar-glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(15px); }
-        .footer-text { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.05em; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); min-height: 100vh; color: white; }
+        .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; }
+        .glass-input { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.1); color: white; }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+        .active-tab { background: #4f46e5; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); }
+        .footer-brand { font-size: 0.7rem; opacity: 0.5; text-transform: uppercase; letter-spacing: 1px; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
     </style>
 </head>
-<body class="text-slate-900 overflow-hidden">
+<body class="p-4 md:p-0">
 
-    <div id="auth-screen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-md rounded-3xl p-8 text-center">
-            <div class="mb-6">
-                <i data-lucide="sparkles" class="w-12 h-12 text-indigo-600 mx-auto mb-2"></i>
-                <h1 class="text-3xl font-bold text-slate-800">Lumina TTM</h1>
-                <p class="text-slate-500">Intelligent School Scheduling</p>
+    <div id="auth-section" class="min-h-screen flex items-center justify-center">
+        <div class="glass-card w-full max-w-md p-8 shadow-2xl">
+            <div class="text-center mb-8">
+                <div class="inline-flex p-3 bg-indigo-500/20 rounded-2xl mb-4 text-indigo-400">
+                    <i data-lucide="shield-check" class="w-8 h-8"></i>
+                </div>
+                <h1 class="text-3xl font-bold tracking-tight">Lumina TTM</h1>
+                <p class="text-slate-400 text-sm mt-2">Manage school schedules with precision</p>
             </div>
-            
-            <div class="space-y-4" id="auth-form-container">
-                <input type="email" id="email" placeholder="Email" class="w-full p-3 rounded-xl border bg-white/50 focus:ring-2 focus:ring-indigo-500 outline-none">
-                <input type="password" id="password" placeholder="Password" class="w-full p-3 rounded-xl border bg-white/50 focus:ring-2 focus:ring-indigo-500 outline-none">
-                <button onclick="handleLogin()" class="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Sign In</button>
+
+            <div class="flex p-1 bg-white/5 rounded-xl mb-6">
+                <button onclick="setAuthMode('login')" id="tab-login" class="flex-1 py-2 text-sm font-semibold rounded-lg transition active-tab">Login</button>
+                <button onclick="setAuthMode('register')" id="tab-register" class="flex-1 py-2 text-sm font-semibold rounded-lg transition text-slate-400">Register</button>
             </div>
-            
-            <p class="mt-8 footer-text text-slate-400">© Developed by K.A.V.Rashmika</p>
+
+            <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
+                <div id="reg-only-fields" class="hidden space-y-4">
+                    <select id="reg-role" onchange="toggleRegFields()" class="glass-input w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="teacher">Teacher (Needs Code)</option>
+                        <option value="manager">Manager (Needs Code)</option>
+                        <option value="principal">Principal (Register School)</option>
+                    </select>
+                    <input type="text" id="reg-fullname" placeholder="Full Name" class="glass-input w-full p-3 rounded-xl outline-none">
+                    <input type="text" id="reg-school-name" placeholder="New School Name" class="glass-input w-full p-3 rounded-xl outline-none hidden">
+                    <input type="text" id="reg-code" placeholder="School Verification Code" class="glass-input w-full p-3 rounded-xl outline-none border-amber-500/30 bg-amber-500/5">
+                </div>
+
+                <input type="email" id="auth-email" placeholder="Email Address" required class="glass-input w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="password" id="auth-password" placeholder="Password" required class="glass-input w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                
+                <button type="submit" id="auth-submit-btn" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition shadow-lg shadow-indigo-500/20">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="mt-8 text-center">
+                <p class="footer-brand">© Developer by K.A.V.Rashmika</p>
+            </div>
         </div>
     </div>
 
-    <div id="app" class="flex h-screen hidden">
-        <aside class="w-72 sidebar-glass text-white flex flex-col">
-            <div class="p-8 border-b border-white/10">
+    <div id="main-app" class="hidden flex h-screen overflow-hidden">
+        <aside class="w-72 bg-black/20 backdrop-blur-xl border-r border-white/10 flex flex-col">
+            <div class="p-8">
                 <h2 class="text-xl font-bold flex items-center gap-2">
                     <i data-lucide="layers" class="text-indigo-400"></i> Lumina TTM
                 </h2>
-                <p id="school-label" class="text-xs text-indigo-300 mt-1 opacity-70"></p>
+                <div id="user-context" class="mt-4 p-3 bg-white/5 rounded-xl">
+                    <p id="ctx-school" class="text-xs font-bold text-indigo-400 uppercase truncate"></p>
+                    <p id="ctx-user" class="text-[10px] text-slate-400 truncate mt-1"></p>
+                </div>
             </div>
 
-            <nav class="flex-1 p-6 space-y-2 overflow-y-auto" id="nav-items">
+            <nav class="flex-1 px-4 space-y-2" id="sidebar-nav">
                 </nav>
 
-            <div class="p-6 border-t border-white/10">
-                <button onclick="logout()" class="flex items-center gap-3 text-slate-400 hover:text-white transition w-full">
-                    <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+            <div class="p-8 border-t border-white/10">
+                <button onclick="logout()" class="flex items-center gap-3 text-slate-400 hover:text-red-400 transition w-full">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
                 </button>
-                <div class="mt-4 footer-text text-white/30">© Developer by K.A.V.Rashmika</div>
+                <p class="footer-brand mt-4">© Developer by K.A.V.Rashmika</p>
             </div>
         </aside>
 
-        <main class="flex-1 flex flex-col p-8 overflow-hidden">
-            <header class="flex justify-between items-center mb-8">
-                <div>
-                    <h3 id="view-title" class="text-2xl font-bold text-white">Dashboard</h3>
-                    <div id="role-tag" class="inline-block px-2 py-0.5 bg-white/20 rounded text-[10px] text-white uppercase mt-1"></div>
-                </div>
+        <main class="flex-1 flex flex-col p-8 overflow-y-auto">
+            <div id="view-header" class="flex justify-between items-center mb-8">
+                <h1 id="view-title" class="text-3xl font-bold">Dashboard</h1>
                 <div id="header-actions"></div>
-            </header>
+            </div>
 
-            <div id="main-content" class="glass-panel flex-1 rounded-3xl p-8 overflow-y-auto">
+            <div id="view-content" class="glass-card flex-1 p-8">
                 </div>
             
-            <div class="mt-4 text-center footer-text text-white/50">© Developer by K.A.V.Rashmika</div>
+            <div class="mt-8 text-center">
+                <p class="footer-brand">© Developer by K.A.V.Rashmika</p>
+            </div>
         </main>
     </div>
 
-    <div id="period-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] hidden items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-md rounded-3xl p-8">
-            <h3 class="text-xl font-bold mb-4">Edit Timetable Slot</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase">Teacher</label>
-                    <select id="select-teacher" class="w-full p-2 rounded-lg border mt-1"></select>
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase">Subject</label>
-                    <select id="select-subject" class="w-full p-2 rounded-lg border mt-1"></select>
-                </div>
-                <div id="conflict-error" class="hidden p-3 bg-red-100 text-red-600 text-xs rounded-lg border border-red-200">
-                    ⚠️ This teacher is already assigned to another class at this time!
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="closeModal()" class="flex-1 py-2 bg-slate-200 rounded-lg font-bold">Cancel</button>
-                    <button onclick="saveTimetableEntry()" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold">Update</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // --- CONFIGURATION ---
+        // --- INITIALIZATION ---
         const SUPABASE_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
-        const supabase = exports.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let userProfile = null;
-        let schoolData = null;
-        let teachersList = [];
+        let currentMode = 'login';
+        let currentUser = null;
 
-        // --- AUTH ---
-        async function handleLogin() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) return alert(error.message);
-            
-            loadSession();
+        // --- AUTH LOGIC ---
+        function setAuthMode(mode) {
+            currentMode = mode;
+            document.getElementById('tab-login').className = mode === 'login' ? 'flex-1 py-2 text-sm font-semibold rounded-lg transition active-tab' : 'flex-1 py-2 text-sm font-semibold rounded-lg transition text-slate-400';
+            document.getElementById('tab-register').className = mode === 'register' ? 'flex-1 py-2 text-sm font-semibold rounded-lg transition active-tab' : 'flex-1 py-2 text-sm font-semibold rounded-lg transition text-slate-400';
+            document.getElementById('reg-only-fields').classList.toggle('hidden', mode === 'login');
+            document.getElementById('auth-submit-btn').innerText = mode === 'login' ? 'Sign In' : 'Create Account';
         }
 
-        async function loadSession() {
+        function toggleRegFields() {
+            const role = document.getElementById('reg-role').value;
+            document.getElementById('reg-school-name').classList.toggle('hidden', role !== 'principal');
+            document.getElementById('reg-code').classList.toggle('hidden', role === 'principal');
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+
+            if (currentMode === 'register') {
+                const role = document.getElementById('reg-role').value;
+                const fullName = document.getElementById('reg-fullname').value;
+                let schoolId = null;
+
+                // 1. Validation for Staff
+                if (role !== 'principal') {
+                    const code = document.getElementById('reg-code').value;
+                    const { data, error } = await supabase.rpc('check_verification_code', { input_code: code });
+                    if (error || !data.length) return alert("Invalid School Verification Code!");
+                    schoolId = data[0].school_id;
+                }
+
+                // 2. Authentication SignUp
+                const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+                if (authError) return alert(authError.message);
+
+                // 3. School Creation for Principal
+                if (role === 'principal') {
+                    const sName = document.getElementById('reg-school-name').value;
+                    const { data: sData } = await supabase.from('schools').insert({ name: sName }).select().single();
+                    schoolId = sData.id;
+                }
+
+                // 4. Profile Creation
+                const { error: profError } = await supabase.from('profiles').insert({
+                    id: authData.user.id,
+                    full_name: fullName,
+                    role: role,
+                    school_id: schoolId,
+                    email: email
+                });
+
+                if (profError) alert("Profile creation failed: " + profError.message);
+                else alert("Registration Successful! Please Login.");
+                setAuthMode('login');
+
+            } else {
+                // Login Flow
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) return alert(error.message);
+                checkSession();
+            }
+        }
+
+        async function checkSession() {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data: profile } = await supabase.from('profiles').select('*, schools(*)').eq('id', user.id).single();
-            userProfile = profile;
-            schoolData = profile.schools;
-
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            document.getElementById('school-label').innerText = schoolData.name;
-            document.getElementById('role-tag').innerText = profile.role;
-            
-            loadNav();
-            switchView('dashboard');
+            if (user) {
+                const { data: profile } = await supabase.from('profiles').select('*, schools(name)').eq('id', user.id).single();
+                currentUser = profile;
+                renderApp();
+            }
         }
 
-        function loadNav() {
-            const nav = document.getElementById('nav-items');
+        function renderApp() {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('ctx-school').innerText = currentUser.schools.name;
+            document.getElementById('ctx-user').innerText = `${currentUser.full_name} (${currentUser.role})`;
+            
+            // Build Nav based on role
+            const nav = document.getElementById('sidebar-nav');
             nav.innerHTML = `
-                <button onclick="switchView('dashboard')" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition">
-                    <i data-lucide="home"></i> Dashboard
+                <button onclick="showDashboard()" class="w-full flex items-center gap-3 p-3 rounded-xl bg-white/10 text-white font-medium">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
                 </button>
             `;
-            if (userProfile.role !== 'teacher') {
+            
+            if (currentUser.role === 'principal') {
                 nav.innerHTML += `
-                    <button onclick="switchView('manage-periods')" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition">
-                        <i data-lucide="clock"></i> Period Times
+                    <button onclick="showCodes()" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition text-slate-400">
+                        <i data-lucide="key" class="w-4 h-4"></i> Verification Codes
                     </button>
                 `;
             }
             lucide.createIcons();
-        }
-
-        // --- TIMETABLE LOGIC & CONFLICT DETECTION ---
-        async function saveTimetableEntry() {
-            const teacher_id = document.getElementById('select-teacher').value;
-            const subject = document.getElementById('select-subject').value;
-            const errorBox = document.getElementById('conflict-error');
-            
-            // Check for conflicts in the database
-            const { data: conflict } = await supabase.from('timetable')
-                .select('*')
-                .eq('school_id', schoolData.id)
-                .eq('day_index', currentSlot.day)
-                .eq('period_id', currentSlot.periodId)
-                .eq('teacher_id', teacher_id)
-                .neq('id', currentSlot.existingId || '00000000-0000-0000-0000-000000000000') // ignore current record
-                .maybeSingle();
-
-            if (conflict) {
-                errorBox.classList.remove('hidden');
-                return;
-            }
-
-            // Save if no conflict
-            const { error } = await supabase.from('timetable').upsert({
-                id: currentSlot.existingId || undefined,
-                school_id: schoolData.id,
-                grade: currentSlot.grade,
-                class_name: currentSlot.className,
-                day_index: currentSlot.day,
-                period_id: currentSlot.periodId,
-                subject: subject,
-                teacher_id: teacher_id
-            });
-
-            if (error) alert(error.message);
-            else {
-                closeModal();
-                switchView('dashboard');
-            }
         }
 
         async function logout() {
@@ -204,7 +212,7 @@
             location.reload();
         }
 
-        // Initialize Lucide icons
+        window.onload = checkSession;
         lucide.createIcons();
     </script>
 </body>
