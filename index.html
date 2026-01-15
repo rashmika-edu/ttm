@@ -33,7 +33,7 @@
             <div id="auth-box">
                 <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
                     <div id="reg-fields" class="hidden space-y-4">
-                        <select id="role" onchange="toggleRegUI()" class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
+                        <select id="role" class="w-full bg-slate-900 border border-white/10 p-3 rounded-xl outline-none text-white">
                             <option value="teacher">Teacher</option>
                             <option value="manager">Manager</option>
                             <option value="principal">Principal</option>
@@ -43,8 +43,8 @@
                     </div>
                     <input type="email" id="email" placeholder="Email" required class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
                     <input type="password" id="password" placeholder="Password" required class="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none">
-                    <button type="submit" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold shadow-lg">Continue</button>
-                    <p class="text-center text-xs text-slate-500 mt-4 cursor-pointer" onclick="toggleAuthMode()">Switch Login/Register</p>
+                    <button type="submit" id="submit-btn" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold shadow-lg hover:bg-indigo-500 transition">Continue</button>
+                    <p class="text-center text-xs text-slate-500 mt-4 cursor-pointer hover:text-indigo-400" onclick="toggleAuthMode()">Switch Login/Register</p>
                 </form>
             </div>
         </div>
@@ -78,8 +78,7 @@
                 <div id="view-actions"></div>
             </header>
 
-            <div id="content-view" class="flex-1 p-10 overflow-y-auto no-scrollbar">
-                </div>
+            <div id="content-view" class="flex-1 p-10 overflow-y-auto no-scrollbar"></div>
             
             <div class="p-4 bg-black/20 text-center">
                 <div class="dev-signature">© Developed by K.A.V.Rashmika</div>
@@ -92,35 +91,84 @@
         const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
         const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
         const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+        
         let userProfile = null;
+        let isRegistering = false;
 
-        // --- AUTH ---
+        // --- AUTH LOGIC ---
+        function toggleAuthMode() {
+            isRegistering = !isRegistering;
+            const regFields = document.getElementById('reg-fields');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            if (isRegistering) {
+                regFields.classList.remove('hidden');
+                submitBtn.innerText = "Create Account";
+            } else {
+                regFields.classList.add('hidden');
+                submitBtn.innerText = "Continue";
+            }
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            const fullName = document.getElementById('fullname').value;
+
+            try {
+                if (isRegistering) {
+                    const { data, error } = await supabase.auth.signUp({ email, password });
+                    if (error) throw error;
+                    
+                    // Create profile in your 'profiles' table
+                    if (data.user) {
+                        await supabase.from('profiles').insert([
+                            { id: data.user.id, full_name: fullName, role: role }
+                        ]);
+                        alert("Registration successful! Please check your email for verification.");
+                    }
+                } else {
+                    const { error } = await supabase.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    checkUser();
+                }
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
         async function checkUser() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data: profile } = await supabase.from('profiles').select('*, schools(*)').eq('id', user.id).single();
-                userProfile = profile;
-                initUI();
+                const { data: profile, error } = await supabase.from('profiles')
+                    .select('*, schools(*)')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (profile) {
+                    userProfile = profile;
+                    initUI();
+                }
             }
         }
 
         function initUI() {
             document.getElementById('auth-layer').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
-            document.getElementById('ui-school').innerText = userProfile.schools.name;
+            document.getElementById('ui-school').innerText = userProfile.schools?.name || "Lumina Academy";
             document.getElementById('ui-user').innerText = userProfile.full_name;
 
             const nav = document.getElementById('sidebar-nav');
             nav.innerHTML = '';
             
-            // Shared Dashboard
             addLink(nav, 'Dashboard', 'home', loadDashboard);
 
-            // Role-Based Links
             if (userProfile.role === 'teacher') {
                 addLink(nav, 'My Timetable', 'calendar-days', loadTeacherTimetable);
             } else {
-                addLink(nav, 'School Timetable', 'grid', loadFullTimetable);
+                addLink(nav, 'School Timetable', 'grid', () => alert("Loading Grid..."));
                 addLink(nav, 'Period Management', 'clock', loadPeriodEditor);
             }
 
@@ -140,19 +188,21 @@
                 document.querySelectorAll('#sidebar-nav button').forEach(b => b.classList.remove('active-nav'));
                 btn.classList.add('active-nav');
                 action();
+                lucide.createIcons();
             };
             parent.appendChild(btn);
         }
 
-        // --- TEACHER VIEW ENGINE ---
+        // --- VIEWS ---
         async function loadTeacherTimetable() {
             document.getElementById('view-title').innerText = "My Weekly Schedule";
             const container = document.getElementById('content-view');
             container.innerHTML = `<div class="animate-pulse text-indigo-400">Loading assignments...</div>`;
 
-            // Fetch periods and user's specific timetable entries
             const { data: periods } = await supabase.from('periods').select('*').eq('school_id', userProfile.school_id).order('sort_order');
             const { data: schedule } = await supabase.from('timetable').select('*').eq('teacher_id', userProfile.id);
+
+            if (!periods) { container.innerHTML = "No periods configured."; return; }
 
             const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
             let html = `<div class="grid grid-cols-6 gap-4 min-w-[800px]"><div></div>`;
@@ -166,7 +216,7 @@
                          </div>`;
 
                 for (let i = 0; i < 5; i++) {
-                    const entry = schedule.find(s => s.day_index === i && s.period_id === p.id);
+                    const entry = schedule?.find(s => s.day_index === i && s.period_id === p.id);
                     if (entry) {
                         html += `
                         <div class="h-24 teacher-slot rounded-2xl p-4 flex flex-col justify-between border border-white/10">
@@ -187,28 +237,24 @@
             lucide.createIcons();
         }
 
-        // --- PERIOD EDITOR (MANAGER/PRINCIPAL) ---
         async function loadPeriodEditor() {
             document.getElementById('view-title').innerText = "Timeline Settings";
             const container = document.getElementById('content-view');
-            
             const { data: periods } = await supabase.from('periods').select('*').eq('school_id', userProfile.school_id).order('sort_order');
 
-            let html = `
-                <div class="max-w-2xl mx-auto space-y-6">
-                    <div class="bg-indigo-600/10 p-6 rounded-3xl border border-indigo-500/20 mb-8">
-                        <h4 class="font-bold text-indigo-400 mb-2">How it works</h4>
-                        <p class="text-sm text-slate-400">Managers can define the start times for each period. Changing these will update all class timetables instantly.</p>
-                    </div>
-                    <div class="space-y-3">
-            `;
+            let html = `<div class="max-w-2xl mx-auto space-y-6">
+                            <div class="bg-indigo-600/10 p-6 rounded-3xl border border-indigo-500/20 mb-8">
+                                <h4 class="font-bold text-indigo-400 mb-2">How it works</h4>
+                                <p class="text-sm text-slate-400">Managers can define the start times for each period.</p>
+                            </div>
+                            <div class="space-y-3">`;
 
-            periods.forEach(p => {
+            periods?.forEach(p => {
                 html += `
                 <div class="glass-panel p-4 rounded-2xl flex items-center justify-between">
                     <span class="font-mono text-indigo-400">Period ${p.sort_order + 1}</span>
                     <input type="time" value="${p.start_time}" onchange="updatePeriodTime('${p.id}', this.value)" 
-                           class="bg-white/5 border border-white/10 rounded-lg px-4 py-2 outline-none focus:border-indigo-500">
+                           class="bg-slate-900 border border-white/10 rounded-lg px-4 py-2 outline-none focus:border-indigo-500 text-white">
                     <button class="text-slate-500 hover:text-white"><i data-lucide="grip-vertical"></i></button>
                 </div>`;
             });
@@ -244,8 +290,10 @@
             location.reload();
         }
 
-        window.onload = checkUser;
-        lucide.createIcons();
+        window.onload = () => {
+            checkUser();
+            lucide.createIcons();
+        };
     </script>
 </body>
 </html>
