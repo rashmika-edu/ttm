@@ -103,165 +103,116 @@
         </main>
     </div>
 
-    <script>
-        // --- CONFIGURATION ---
-        const SB_URL = 'https://yybyyiyrquxtnczrbvgb.supabase.co';
-        const SB_KEY = 'sb_publishable_Kjio-fMoDlUy5Oc0dvbH6g_HMqBX9qM';
-        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+    // --- INITIALIZE SUPABASE ---
+    const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // --- STATE ---
+    let currentUserProfile = null;
+
+    // --- AUTHENTICATION ---
+    async function handleLogin() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('pass').value;
+
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         
-        let userProfile = null;
-        let isRegistering = false;
+        if (error) return alert(error.message);
 
-        // --- AUTH ENGINE ---
-        function toggleAuthMode() {
-            isRegistering = !isRegistering;
-            document.getElementById('reg-fields').classList.toggle('hidden', !isRegistering);
-            document.getElementById('auth-title').innerText = isRegistering ? "Join Lumina" : "Lumina TTM";
-            document.getElementById('submit-btn').innerText = isRegistering ? "Register" : "Continue";
-            document.getElementById('toggle-hint').innerText = isRegistering ? "Already have an account?" : "New to Lumina?";
-            document.getElementById('toggle-btn').innerText = isRegistering ? "Sign In" : "Create Account";
-        }
+        // Fetch user profile (role and school code)
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
 
-        async function handleAuth(e) {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const btn = document.getElementById('submit-btn');
-            btn.disabled = true;
+        currentUserProfile = profile;
+        render();
+        if (profile.role !== 'teacher') updateClasses();
+        renderGrid();
+    }
 
-            try {
-                if (isRegistering) {
-                    const fullName = document.getElementById('fullname').value;
-                    const role = document.getElementById('role').value;
-                    const vCode = document.getElementById('v_code').value;
+    async function handleRegSchool() {
+        const sName = document.getElementById('sName').value;
+        const pEmail = document.getElementById('pEmail').value;
+        const pPass = document.getElementById('pPass').value;
+        const pName = document.getElementById('pName').value;
+        const code = Math.random().toString(36).substring(2, 7).toUpperCase();
 
-                    // 1. Verify School Join Code
-                    const { data: school, error: sError } = await supabase.from('schools').select('id').eq('name', vCode).single();
-                    if (sError || !school) throw new Error("Invalid Join Code. Please contact your administrator.");
+        // 1. Sign up user in Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: pEmail,
+            password: pPass,
+        });
 
-                    // 2. Sign Up
-                    const { data: auth, error: aError } = await supabase.auth.signUp({ email, password });
-                    if (aError) throw aError;
+        if (authError) return alert(authError.message);
 
-                    // 3. Create Profile
-                    if (auth.user) {
-                        const { error: pError } = await supabase.from('profiles').insert([{
-                            id: auth.user.id,
-                            full_name: fullName,
-                            role: role,
-                            school_id: school.id
-                        }]);
-                        if (pError) throw pError;
-                        alert("Success! Now please sign in with your new account.");
-                        toggleAuthMode();
-                    }
-                } else {
-                    const { error } = await supabase.signInWithPassword({ email, password });
-                    if (error) throw error;
-                }
-            } catch (err) {
-                alert(err.message);
-            } finally {
-                btn.disabled = false;
-            }
-        }
+        // 2. Create School
+        await supabase.from('schools').insert([{ name: sName, code: code }]);
 
-        // --- APP INITIALIZATION ---
-        async function initApp() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profile } = await supabase.from('profiles').select('*, schools(*)').eq('id', user.id).single();
-                if (profile) {
-                    userProfile = profile;
-                    document.getElementById('auth-layer').classList.add('hidden');
-                    document.getElementById('main-app').classList.remove('hidden');
-                    document.getElementById('ui-school').innerText = profile.schools.name;
-                    document.getElementById('ui-user').innerText = profile.full_name;
-                    
-                    renderNavigation();
-                    loadDashboard();
-                }
-            } else {
-                document.getElementById('auth-layer').classList.remove('hidden');
-                document.getElementById('main-app').classList.add('hidden');
-            }
-            lucide.createIcons();
-        }
+        // 3. Create Profile
+        await supabase.from('profiles').insert([{
+            id: authData.user.id,
+            name: pName,
+            email: pEmail,
+            role: 'principal',
+            school_code: code
+        }]);
 
-        function renderNavigation() {
-            const nav = document.getElementById('sidebar-nav');
-            nav.innerHTML = '';
-            
-            addNavLink(nav, 'Dashboard', 'home', loadDashboard);
-            
-            if (userProfile.role === 'teacher') {
-                addNavLink(nav, 'My Schedule', 'calendar-days', () => renderView("My Weekly Schedule", "Teacher schedule coming soon..."));
-            } else {
-                addNavLink(nav, 'School Grid', 'grid', () => renderView("Master Timetable", "Full school grid coming soon..."));
-                addNavLink(nav, 'Settings', 'settings', () => renderView("System Settings", "Configure your school timeline here."));
-            }
+        alert(`School Registered! Code: ${code}`);
+        render();
+    }
 
-            if (userProfile.role === 'principal') {
-                addNavLink(nav, 'Staff Control', 'shield-check', () => renderView("Administration", "Manage teachers and access levels."));
-            }
-            lucide.createIcons();
-        }
+    // --- TIMETABLE DATA ---
+    async function renderGrid() {
+        const grade = document.getElementById('grade')?.value || "6";
+        const cls = document.getElementById('class')?.value || "A";
+        const container = document.getElementById('gridContainer');
+        
+        // Fetch from Supabase
+        const { data: slots, error } = await supabase
+            .from('timetables')
+            .select('*')
+            .eq('school_code', currentUserProfile.school_code)
+            .eq('grade', grade)
+            .eq('class_name', cls);
 
-        function addNavLink(parent, label, icon, action) {
-            const btn = document.createElement('button');
-            btn.className = "w-full flex items-center gap-3 p-4 rounded-2xl transition text-slate-400 hover:text-white hover:bg-white/5";
-            btn.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i> <span class="text-sm font-medium">${label}</span>`;
-            btn.onclick = () => {
-                document.querySelectorAll('#sidebar-nav button').forEach(b => b.classList.remove('active-nav'));
-                btn.classList.add('active-nav');
-                action();
-            };
-            parent.appendChild(btn);
-        }
+        // Transform data into a searchable map
+        const slotMap = {};
+        slots?.forEach(s => {
+            slotMap[`${s.day}_${s.slot_index}`] = { subject: s.subject, teacher: s.teacher_name };
+        });
 
-        // --- VIEWS ---
-        function loadDashboard() {
-            document.getElementById('view-title').innerText = "Overview";
-            document.getElementById('content-view').innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="glass-panel p-10 rounded-[40px] relative overflow-hidden">
-                        <i data-lucide="zap" class="absolute -right-10 -top-10 w-40 h-40 text-indigo-500 opacity-5"></i>
-                        <h4 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Welcome back</h4>
-                        <h2 class="text-4xl font-bold">${userProfile.full_name}</h2>
-                        <div class="mt-8 flex gap-4">
-                            <span class="px-4 py-2 bg-indigo-600/20 text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-tighter">${userProfile.role}</span>
-                        </div>
-                    </div>
-                    <div class="glass-panel p-10 rounded-[40px]">
-                        <h4 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Quick Actions</h4>
-                        <div class="space-y-3">
-                            <button class="w-full p-4 glass-card rounded-2xl text-left text-sm font-medium flex items-center justify-between">
-                                Check Today's Classes <i data-lucide="chevron-right" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            lucide.createIcons();
-        }
+        // ... (The rest of your HTML rendering logic remains the same, 
+        // just use 'slotMap' to check for existing data) ...
+    }
 
-        function renderView(title, placeholder) {
-            document.getElementById('view-title').innerText = title;
-            document.getElementById('content-view').innerHTML = `
-                <div class="glass-panel p-10 rounded-[40px] text-center">
-                    <p class="text-slate-400">${placeholder}</p>
-                </div>`;
-        }
+    async function saveSlot() {
+        const subject = document.getElementById('modalSubject').value;
+        const teacher = document.getElementById('modalTeacher').value;
+        const [day, slotIndex] = currentEditKey.split('_'); // logic to extract key details
+        
+        const grade = document.getElementById('grade').value;
+        const cls = document.getElementById('class').value;
 
-        async function signOut() {
-            await supabase.auth.signOut();
-            window.location.reload();
-        }
+        const { error } = await supabase.from('timetables').upsert({
+            school_code: currentUserProfile.school_code,
+            grade: grade,
+            class_name: cls,
+            day: day,
+            slot_index: parseInt(slotIndex),
+            subject: subject,
+            teacher_name: teacher
+        }, { onConflict: 'school_code, grade, class_name, day, slot_index' });
 
-        // --- LISTENERS ---
-        supabase.auth.onAuthStateChange(() => initApp());
-        window.onload = initApp;
-        lucide.createIcons();
-    </script>
+        if (error) alert(error.message);
+        closeModal();
+        renderGrid();
+    }
+</script>
 </body>
 </html>
